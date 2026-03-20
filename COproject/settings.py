@@ -6,23 +6,33 @@ load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
+TEMPLATE_DIR = os.path.join(
+    BASE_DIR, "templates"
+)  # templateを保存するディレクトリの設定
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static")
-]
+]  # ← これがないと static/css が見つからない
+
+
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY", "dummy-development-secret")
 
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
+    "household-app-bacon.net",  # Raspberry Pi (Cloudflare Tunnel)
 ]
 
+
 # Application definition
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -53,7 +63,7 @@ TEMPLATES = [
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
             TEMPLATE_DIR,
-        ],
+        ],  # テンプレートフォルダを指定
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -67,7 +77,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "COproject.wsgi.application"
 
-# Database (Supabase) - 接続情報は .env で管理
+
+# Database
+# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
+
+# supabaseのSQLを参照（直接接続）
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -79,7 +93,10 @@ DATABASES = {
     }
 }
 
+
 # Password validation
+# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -95,6 +112,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# パスワード暗号化（Bcryptが一番強いので一番最初に　要 pip install bcrypt）
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
     "django.contrib.auth.hashers.Argon2PasswordHasher",
@@ -103,24 +121,46 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.ScryptPasswordHasher",
 ]
 
-LANGUAGE_CODE = "ja"
+# Internationalization
+# https://docs.djangoproject.com/en/5.2/topics/i18n/
+
+LANGUAGE_CODE = "ja"  # 言語と時刻を変更
+
 TIME_ZONE = "Asia/Tokyo"
+
 USE_I18N = True
+
 USE_TZ = True
 
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
+
 STATIC_URL = "static/"
+
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# 使わないけど一応画像設定
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
 
+
+# ユーザーモデルの指定
+# Django のデフォルトの User モデルではなく、カスタムユーザーモデル 'accounts.User' を使用する
 AUTH_USER_MODEL = "accounts.User"
+
+# ログインしていない時に遷移するアドレス
 LOGIN_URL = "accounts:login"
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"  # 本番環境向け
 EMAIL_HOST = "smtp.gmail.com"
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
@@ -130,5 +170,20 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
 
-# OpenAI API（栄養価推定に使用）
+# OpenAI の API キー
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+
+# サブパス /cooking でのデプロイ設定
+# Nginx 側で /cooking プレフィックスを除去してから Gunicorn に転送する構成
+# ローカル開発時は .env に FORCE_SCRIPT_NAME を書かない（空 = 無効）
+# 本番（Raspberry Pi）の .env に FORCE_SCRIPT_NAME=/cooking を設定する
+_script_name = os.getenv("FORCE_SCRIPT_NAME", "")
+if _script_name:
+    FORCE_SCRIPT_NAME = _script_name
+
+# プロキシ経由のHTTPS判定（Cloudflare Tunnel 共通）
+CSRF_TRUSTED_ORIGINS = [
+    "https://household-app-bacon.net",
+]
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
