@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}{{ recipe.name }}{% endblock %}
+
+{% block content %}
+<div class="mt-3">
+
+    <!-- ヘッダー -->
+    <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+            <h2>{{ recipe.name }}</h2>
+            <div class="mb-1">
+                <span class="badge bg-genre1">{{ recipe.genre1 }}</span>
+                <span class="badge bg-genre2">{{ recipe.genre2 }}</span>
+                {% if recipe.genre3 %}
+                <span class="badge bg-secondary">{{ recipe.genre3 }}</span>
+                {% endif %}
+                <span class="text-muted small ms-2">{{ recipe.servings }}人前</span>
+            </div>
+            <p class="text-muted small mb-0">登録日: {{ recipe.created_at|date:"Y年m月d日" }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'recipes:edit' recipe.pk %}" class="btn btn-outline-secondary btn-sm">編集</a>
+            <a href="{% url 'recipes:delete' recipe.pk %}" class="btn btn-outline-danger btn-sm">削除</a>
+        </div>
+    </div>
+
+    <div class="row g-3">
+
+        <!-- 材料 -->
+        <div class="col-12 col-md-5">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-bold">材料（{{ recipe.servings }}人前）</div>
+                <div class="card-body">
+                    {% if recipe.ingredients.all %}
+                    <ul class="list-group list-group-flush">
+                        {% for ing in recipe.ingredients.all %}
+                        <li class="list-group-item px-0 d-flex justify-content-between">
+                            <span>{{ ing.name }}</span>
+                            <span class="text-muted">{{ ing.amount }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">材料が登録されていません。</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 手順 -->
+        <div class="col-12 col-md-7">
+            <div class="card shadow-sm h-100">
+                <div class="card-header fw-bold">手順</div>
+                <div class="card-body">
+                    {% if recipe.steps.all %}
+                    <ol class="ps-3">
+                        {% for step in recipe.steps.all %}
+                        <li class="mb-2">{{ step.description }}</li>
+                        {% endfor %}
+                    </ol>
+                    {% else %}
+                    <p class="text-muted">手順が登録されていません。</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 栄養価 -->
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+                    <span>栄養価（1人分 推定）</span>
+                    {% if not nutrition %}
+                    <button id="btn-nutrition" class="btn btn-sm btn-outline-primary">
+                        AIで栄養価を取得
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if nutrition %}
+                    <div class="row text-center g-2" id="nutrition-display">
+                        <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.calories|floatformat:0 }}</div><div class="label">kcal</div></div></div>
+                        <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.protein|floatformat:1 }}</div><div class="label">たんぱく質(g)</div></div></div>
+                        <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.fat|floatformat:1 }}</div><div class="label">脂質(g)</div></div></div>
+                        <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.carbs|floatformat:1 }}</div><div class="label">炭水化物(g)</div></div></div>
+                        <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.salt|floatformat:1 }}</div><div class="label">塩分(g)</div></div></div>
+                    </div>
+                    <p class="text-muted small mt-2 mb-0">※ AI による推定値です。実際の値と異なる場合があります。</p>
+                    {% else %}
+                    <div id="nutrition-placeholder" class="text-muted">
+                        「AIで栄養価を取得」ボタンを押すと OpenAI API で推定します。
+                    </div>
+                    <div id="nutrition-display" class="d-none">
+                        <div class="row text-center g-2">
+                            <div class="col"><div class="nutrition-item"><div class="value" id="n-cal">-</div><div class="label">kcal</div></div></div>
+                            <div class="col"><div class="nutrition-item"><div class="value" id="n-pro">-</div><div class="label">たんぱく質(g)</div></div></div>
+                            <div class="col"><div class="nutrition-item"><div class="value" id="n-fat">-</div><div class="label">脂質(g)</div></div></div>
+                            <div class="col"><div class="nutrition-item"><div class="value" id="n-carb">-</div><div class="label">炭水化物(g)</div></div></div>
+                            <div class="col"><div class="nutrition-item"><div class="value" id="n-salt">-</div><div class="label">塩分(g)</div></div></div>
+                        </div>
+                        <p class="text-muted small mt-2 mb-0">※ AI による推定値です。実際の値と異なる場合があります。</p>
+                    </div>
+                    <div id="nutrition-error" class="text-danger d-none"></div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /row -->
+
+    <div class="mt-3 mb-4">
+        <a href="{% url 'recipes:list' %}" class="btn btn-outline-secondary btn-sm">← 一覧へ戻る</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if not nutrition %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const btn = document.getElementById('btn-nutrition');
+    if (!btn) return;
+
+    btn.addEventListener('click', function () {
+        btn.disabled = true;
+        btn.textContent = '取得中…';
+
+        fetch('{% url "recipes:nutrition" recipe.pk %}')
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('nutrition-error').textContent = data.error;
+                    document.getElementById('nutrition-error').classList.remove('d-none');
+                    btn.disabled = false;
+                    btn.textContent = 'AIで栄養価を取得';
+                    return;
+                }
+                document.getElementById('n-cal').textContent  = Math.round(data.calories);
+                document.getElementById('n-pro').textContent  = parseFloat(data.protein).toFixed(1);
+                document.getElementById('n-fat').textContent  = parseFloat(data.fat).toFixed(1);
+                document.getElementById('n-carb').textContent = parseFloat(data.carbs).toFixed(1);
+                document.getElementById('n-salt').textContent = parseFloat(data.salt).toFixed(1);
+                document.getElementById('nutrition-placeholder').classList.add('d-none');
+                document.getElementById('nutrition-display').classList.remove('d-none');
+                btn.textContent = '取得済み';
+            })
+            .catch(() => {
+                document.getElementById('nutrition-error').textContent = '通信エラーが発生しました。';
+                document.getElementById('nutrition-error').classList.remove('d-none');
+                btn.disabled = false;
+                btn.textContent = 'AIで栄養価を取得';
+            });
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

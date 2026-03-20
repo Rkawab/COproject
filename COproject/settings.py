@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "accounts",
+    "recipes",
     "widget_tweaks",
 ]
 
@@ -128,3 +129,6 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
+
+# OpenAI API（栄養価推定に使用）
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h2 class="mt-3">{{ title }}</h2>
+
+<form method="POST" id="recipe-form">
+    {% csrf_token %}
+
+    <!-- 基本情報 -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header fw-bold">基本情報</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">{{ form.name.label }} <span class="text-danger">*</span></label>
+                {% render_field form.name class="form-control" %}
+                {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <label class="form-label">{{ form.genre1.label }}</label>
+                    {% render_field form.genre1 class="form-select" %}
+                </div>
+                <div class="col-6">
+                    <label class="form-label">{{ form.genre2.label }}</label>
+                    {% render_field form.genre2 class="form-select" id="id_genre2" %}
+                </div>
+            </div>
+            <div class="row g-2 mb-3" id="genre3-row">
+                <div class="col-6">
+                    <label class="form-label">ジャンル3（主菜のみ）</label>
+                    {% render_field form.genre3 class="form-select" id="id_genre3" %}
+                </div>
+                <div class="col-6">
+                    <label class="form-label">{{ form.servings.label }}</label>
+                    {% render_field form.servings class="form-control" %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 材料 -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header fw-bold">材料</div>
+        <div class="card-body">
+            {{ ingredient_formset.management_form }}
+            <div id="ingredient-formset">
+                {% for ing_form in ingredient_formset %}
+                <div class="ingredient-row row g-2 mb-2 align-items-center">
+                    {% if ing_form.instance.pk %}{{ ing_form.id }}{% else %}{{ ing_form.id }}{% endif %}
+                    <div class="col-5">
+                        {% render_field ing_form.name class="form-control" placeholder="材料名" %}
+                    </div>
+                    <div class="col-5">
+                        {% render_field ing_form.amount class="form-control" placeholder="例: 200g" %}
+                    </div>
+                    <div class="col-2 text-center">
+                        {% if ing_form.instance.pk %}
+                            <label class="small text-danger d-flex align-items-center gap-1">
+                                {{ ing_form.DELETE }} 削除
+                            </label>
+                        {% else %}
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <!-- 追加行のテンプレート（hidden） -->
+            <div id="ingredient-empty-row" class="d-none">
+                <div class="ingredient-row row g-2 mb-2 align-items-center">
+                    <div class="col-5">
+                        <input type="text" name="ingredients-__prefix__-name" class="form-control" placeholder="材料名">
+                        <input type="hidden" name="ingredients-__prefix__-id" value="">
+                    </div>
+                    <div class="col-5">
+                        <input type="text" name="ingredients-__prefix__-amount" class="form-control" placeholder="例: 200g">
+                    </div>
+                    <div class="col-2 text-center">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button>
+                    </div>
+                </div>
+            </div>
+            <button type="button" id="add-ingredient" class="btn btn-outline-secondary btn-sm mt-1">＋ 材料を追加</button>
+        </div>
+    </div>
+
+    <!-- 手順 -->
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header fw-bold">手順</div>
+        <div class="card-body">
+            {{ step_formset.management_form }}
+            <div id="step-formset">
+                {% for step_form in step_formset %}
+                <div class="step-row row g-2 mb-2 align-items-start">
+                    {{ step_form.id }}
+                    {{ step_form.order }}
+                    <div class="col-auto pt-2 fw-bold text-muted step-num"></div>
+                    <div class="col">
+                        {% render_field step_form.description class="form-control" rows="2" placeholder="手順を入力" %}
+                    </div>
+                    <div class="col-auto">
+                        {% if step_form.instance.pk %}
+                            <label class="small text-danger d-flex align-items-center gap-1 mt-2">
+                                {{ step_form.DELETE }} 削除
+                            </label>
+                        {% else %}
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-row mt-2">✕</button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <!-- 追加行テンプレート（hidden） -->
+            <div id="step-empty-row" class="d-none">
+                <div class="step-row row g-2 mb-2 align-items-start">
+                    <input type="hidden" name="steps-__prefix__-id" value="">
+                    <input type="hidden" name="steps-__prefix__-order" value="0" class="step-order-input">
+                    <div class="col-auto pt-2 fw-bold text-muted step-num"></div>
+                    <div class="col">
+                        <textarea name="steps-__prefix__-description" class="form-control" rows="2" placeholder="手順を入力"></textarea>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" class="btn btn-sm btn-outline-danger remove-row mt-2">✕</button>
+                    </div>
+                </div>
+            </div>
+            <button type="button" id="add-step" class="btn btn-outline-secondary btn-sm mt-1">＋ 手順を追加</button>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mb-4">
+        <button type="submit" class="btn btn-primary px-4">登録</button>
+        {% if recipe %}
+        <a href="{% url 'recipes:detail' recipe.pk %}" class="btn btn-outline-secondary">キャンセル</a>
+        {% else %}
+        <a href="{% url 'recipes:list' %}" class="btn btn-outline-secondary">キャンセル</a>
+        {% endif %}
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ---- ジャンル3の表示制御 ----
+function toggleGenre3() {
+    const genre2 = document.getElementById('id_genre2');
+    const genre3Row = document.getElementById('genre3-row');
+    if (genre2 && genre3Row) {
+        genre3Row.style.display = genre2.value === '主菜' ? '' : 'none';
+    }
+}
+document.addEventListener('DOMContentLoaded', function () {
+    toggleGenre3();
+    const genre2 = document.getElementById('id_genre2');
+    if (genre2) genre2.addEventListener('change', toggleGenre3);
+});
+
+// ---- 材料行の追加・削除 ----
+document.addEventListener('DOMContentLoaded', function () {
+    const ingFormset  = document.getElementById('ingredient-formset');
+    const ingEmpty    = document.getElementById('ingredient-empty-row');
+    const addIngBtn   = document.getElementById('add-ingredient');
+    const ingTotal    = document.getElementById('id_ingredients-TOTAL_FORMS');
+
+    addIngBtn.addEventListener('click', function () {
+        const idx = parseInt(ingTotal.value);
+        const html = ingEmpty.innerHTML.replace(/__prefix__/g, idx);
+        ingFormset.insertAdjacentHTML('beforeend', html);
+        ingTotal.value = idx + 1;
+        bindRemoveButtons();
+    });
+
+    // ---- 手順行の追加・削除 ----
+    const stepFormset = document.getElementById('step-formset');
+    const stepEmpty   = document.getElementById('step-empty-row');
+    const addStepBtn  = document.getElementById('add-step');
+    const stepTotal   = document.getElementById('id_steps-TOTAL_FORMS');
+
+    addStepBtn.addEventListener('click', function () {
+        const idx = parseInt(stepTotal.value);
+        const html = stepEmpty.innerHTML.replace(/__prefix__/g, idx);
+        stepFormset.insertAdjacentHTML('beforeend', html);
+        stepTotal.value = idx + 1;
+        updateStepNumbers();
+        bindRemoveButtons();
+    });
+
+    bindRemoveButtons();
+    updateStepNumbers();
+});
+
+function bindRemoveButtons() {
+    document.querySelectorAll('.remove-row').forEach(function (btn) {
+        btn.onclick = function () {
+            btn.closest('.ingredient-row, .step-row').remove();
+            updateStepNumbers();
+        };
+    });
+}
+
+function updateStepNumbers() {
+    const rows = document.querySelectorAll('#step-formset .step-row');
+    const nums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
+    let visible = 0;
+    rows.forEach(function (row) {
+        const numEl = row.querySelector('.step-num');
+        // DELETE チェックボックスが checked なら非表示扱い
+        const delChk = row.querySelector('input[type="checkbox"]');
+        if (delChk && delChk.checked) return;
+        if (numEl) numEl.textContent = nums[visible] || (visible + 1) + '.';
+        // hidden の order input に値をセット
+        const orderInput = row.querySelector('input[name$="-order"]');
+        if (orderInput) orderInput.value = visible + 1;
+        visible++;
+    });
+}
+
+// フォーム送信前に step の order を確定
+document.getElementById('recipe-form').addEventListener('submit', function () {
+    updateStepNumbers();
+});
+</script>
+{% endblock %}

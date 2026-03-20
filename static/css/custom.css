@@ -1,18 +1,86 @@
-h2 {
-    margin-top: 1rem;
-    font-weight: 600;
-    font-size: 1.75rem;
-    border-left: 5px solid #0d6efd;
-    padding-left: 0.75rem;
-    color: #333;
-    background-color: #f8f9fa;
-    border-radius: 0.25rem;
+/* ---- テーマカラー ---- */
+:root {
+    --color-main: #fd510d;
 }
 
+/* ---- 見出し ---- */
+h2 {
+    margin-top: 0.5rem;
+    font-weight: 600;
+    font-size: 1.5rem;
+    border-left: 5px solid var(--color-main);
+    padding-left: 0.75rem;
+    color: #333;
+}
+
+/* ---- ナビリンク hover ---- */
 .navbar-nav .nav-link:hover {
     text-decoration: underline;
 }
 
+/* ---- コンテナ上マージン ---- */
 .container {
-    margin-top: 0.5rem;
+    margin-top: 0.25rem;
+}
+
+/* ---- 献立カード ---- */
+.recipe-card {
+    transition: box-shadow 0.15s, transform 0.15s;
+    border-left: 4px solid var(--color-main);
+}
+.recipe-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12) !important;
+    transform: translateY(-2px);
+}
+
+/* ---- バッジ色 ---- */
+.bg-genre1 {
+    background-color: #fd510d;
+    color: #fff;
+}
+.bg-genre2 {
+    background-color: #e07b30;
+    color: #fff;
+}
+
+/* ---- 栄養価表示 ---- */
+.nutrition-item {
+    background: #fff8f5;
+    border: 1px solid #fddcc8;
+    border-radius: 8px;
+    padding: 0.5rem 0.25rem;
+}
+.nutrition-item .value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--color-main);
+}
+.nutrition-item .label {
+    font-size: 0.7rem;
+    color: #888;
+}
+
+/* ---- ボタン primary をオレンジに ---- */
+.btn-primary {
+    background-color: var(--color-main);
+    border-color: var(--color-main);
+}
+.btn-primary:hover {
+    background-color: #d94000;
+    border-color: #d94000;
+}
+.btn-outline-primary {
+    color: var(--color-main);
+    border-color: var(--color-main);
+}
+.btn-outline-primary:hover {
+    background-color: var(--color-main);
+    border-color: var(--color-main);
+    color: #fff;
+}
+
+/* ---- card-header ---- */
+.card-header {
+    background-color: #fff3ee;
+    border-bottom: 1px solid #fddcc8;
 }

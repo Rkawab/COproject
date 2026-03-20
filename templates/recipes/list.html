@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}献立一覧{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mt-3 mb-3">
+    <h2>献立一覧</h2>
+    <a href="{% url 'recipes:create' %}" class="btn btn-primary">＋ 新規登録</a>
+</div>
+
+<!-- 検索・絞り込みフォーム -->
+<form method="GET" class="row g-2 mb-4">
+    <div class="col-12 col-md-4">
+        <input type="text" name="q" value="{{ query }}" class="form-control" placeholder="料理名で検索">
+    </div>
+    <div class="col-6 col-md-2">
+        <select name="genre1" class="form-select">
+            <option value="">ジャンル1 すべて</option>
+            <option value="和食" {% if genre1 == "和食" %}selected{% endif %}>和食</option>
+            <option value="洋食" {% if genre1 == "洋食" %}selected{% endif %}>洋食</option>
+            <option value="中華" {% if genre1 == "中華" %}selected{% endif %}>中華</option>
+            <option value="スイーツ" {% if genre1 == "スイーツ" %}selected{% endif %}>スイーツ</option>
+        </select>
+    </div>
+    <div class="col-6 col-md-2">
+        <select name="genre2" class="form-select">
+            <option value="">ジャンル2 すべて</option>
+            <option value="主食" {% if genre2 == "主食" %}selected{% endif %}>主食</option>
+            <option value="主菜" {% if genre2 == "主菜" %}selected{% endif %}>主菜</option>
+            <option value="副菜" {% if genre2 == "副菜" %}selected{% endif %}>副菜</option>
+            <option value="汁物" {% if genre2 == "汁物" %}selected{% endif %}>汁物</option>
+        </select>
+    </div>
+    <div class="col-12 col-md-2">
+        <button type="submit" class="btn btn-outline-secondary w-100">絞り込み</button>
+    </div>
+    {% if query or genre1 or genre2 %}
+    <div class="col-12 col-md-2">
+        <a href="{% url 'recipes:list' %}" class="btn btn-outline-danger w-100">リセット</a>
+    </div>
+    {% endif %}
+</form>
+
+<!-- 件数 -->
+<p class="text-muted small">{{ recipes|length }} 件</p>
+
+<!-- 献立カード一覧 -->
+{% if recipes %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+    {% for recipe in recipes %}
+    <div class="col">
+        <a href="{% url 'recipes:detail' recipe.pk %}" class="text-decoration-none">
+            <div class="card h-100 shadow-sm recipe-card">
+                <div class="card-body">
+                    <h5 class="card-title text-dark fw-bold">{{ recipe.name }}</h5>
+                    <div class="mb-2">
+                        <span class="badge bg-genre1">{{ recipe.genre1 }}</span>
+                        <span class="badge bg-genre2">{{ recipe.genre2 }}</span>
+                        {% if recipe.genre3 %}
+                        <span class="badge bg-secondary">{{ recipe.genre3 }}</span>
+                        {% endif %}
+                    </div>
+                    <p class="card-text small text-muted">
+                        {{ recipe.servings }}人前
+                        &nbsp;·&nbsp;
+                        {{ recipe.created_at|date:"Y/m/d" }}
+                    </p>
+                </div>
+            </div>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+    <p>献立が見つかりません。</p>
+    <a href="{% url 'recipes:create' %}" class="btn btn-primary">最初の献立を登録する</a>
+</div>
+{% endif %}
+{% endblock %}

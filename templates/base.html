@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>{% block title %}料理レシピアプリ{% endblock %}</title>
+    <title>{% block title %}献立記録アプリ{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- Bootstrap 5 CDN -->
@@ -16,9 +16,9 @@
 </head>
 <body>
     <!-- ナビバー -->
-    <nav class="navbar navbar-expand-md navbar-dark bg-primary shadow-sm">
+    <nav class="navbar navbar-expand-md navbar-dark shadow-sm" style="background-color: #fd510d;">
         <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="{% url 'accounts:login' %}">ホーム</a>
+            <a class="navbar-brand fw-bold" href="{% url 'home' %}">🍳 献立記録</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -27,7 +27,10 @@
                 <ul class="navbar-nav ms-auto">
                     {% if user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link text-white" href="{% url 'accounts:info' %}">ユーザー情報</a>
+                            <a class="nav-link text-white" href="{% url 'recipes:list' %}">献立一覧</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{% url 'recipes:create' %}">＋ 登録</a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link text-white" href="{% url 'accounts:logout' %}">ログアウト</a>
@@ -42,7 +45,7 @@
     <main class="container">
         {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show mt-2" role="alert">
                 {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
@@ -57,18 +60,14 @@
     {% block extra_js %}{% endblock %}
 
     <script>
+    // フォーム二重送信防止
     document.addEventListener("DOMContentLoaded", function () {
-        const forms = document.querySelectorAll("form");
-        forms.forEach(function (form) {
-            form.addEventListener("submit", function (event) {
-                const submitButtons = form.querySelectorAll("button[type='submit'], input[type='submit']");
-                submitButtons.forEach(function (btn) {
+        document.querySelectorAll("form").forEach(function (form) {
+            form.addEventListener("submit", function () {
+                form.querySelectorAll("button[type='submit'], input[type='submit']").forEach(function (btn) {
                     btn.disabled = true;
-                    if (btn.tagName.toLowerCase() === 'button') {
-                        btn.innerText = "保存中…";
-                    } else if (btn.tagName.toLowerCase() === 'input') {
-                        btn.value = "保存中…";
-                    }
+                    if (btn.tagName.toLowerCase() === 'button') btn.innerText = "保存中…";
+                    else btn.value = "保存中…";
                 });
             });
         });

@@ -37,7 +37,7 @@ def user_login(request):
         user = authenticate(email=email, password=password)
         if user:
             login(request, user)
-            return redirect("accounts:login")  # TODO: ログイン後のホーム画面に変更
+            return redirect("recipes:list")
         else:
             messages.warning(request, "ログインに失敗しました")
     return render(

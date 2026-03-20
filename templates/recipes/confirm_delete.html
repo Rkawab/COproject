@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}削除確認{% endblock %}
+
+{% block content %}
+<div class="mt-4" style="max-width: 480px;">
+    <h2>削除確認</h2>
+    <p class="mt-3">「<strong>{{ recipe.name }}</strong>」を削除しますか？</p>
+    <p class="text-danger small">この操作は取り消せません。材料・手順もすべて削除されます。</p>
+    <form method="POST">
+        {% csrf_token %}
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-danger">削除する</button>
+            <a href="{% url 'recipes:detail' recipe.pk %}" class="btn btn-outline-secondary">キャンセル</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
