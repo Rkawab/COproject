@@ -130,6 +130,13 @@
         </div>
     </div>
 
+    {% if ingredient_formset.non_form_errors or step_formset.non_form_errors %}
+    <div class="alert alert-danger">
+        {% for e in ingredient_formset.non_form_errors %}{{ e }}{% endfor %}
+        {% for e in step_formset.non_form_errors %}{{ e }}{% endfor %}
+    </div>
+    {% endif %}
+
     <div class="d-flex gap-2 mb-4">
         <button type="submit" class="btn btn-primary px-4">登録</button>
         {% if recipe %}
@@ -209,9 +216,17 @@ function updateStepNumbers() {
         // DELETE チェックボックスが checked なら非表示扱い
         const delChk = row.querySelector('input[type="checkbox"]');
         if (delChk && delChk.checked) return;
+        // 手順が空の行は order をクリア（空のままにするとDjangoが空フォームと認識できる）
+        const descInput = row.querySelector('textarea[name$="-description"]');
+        const hasContent = descInput && descInput.value.trim() !== '';
+        const orderInput = row.querySelector('input[name$="-order"]');
+        if (!hasContent) {
+            if (orderInput) orderInput.value = '';
+            if (numEl) numEl.textContent = '';
+            return;
+        }
         if (numEl) numEl.textContent = nums[visible] || (visible + 1) + '.';
         // hidden の order input に値をセット
-        const orderInput = row.querySelector('input[name$="-order"]');
         if (orderInput) orderInput.value = visible + 1;
         visible++;
     });
