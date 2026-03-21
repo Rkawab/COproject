@@ -27,16 +27,18 @@ class RecipeForm(forms.ModelForm):
 IngredientFormSet = inlineformset_factory(
     Recipe,
     Ingredient,
-    fields=["name", "amount"],
+    fields=["name", "amount", "group"],
     extra=3,
     can_delete=True,
     widgets={
         "name": forms.TextInput(attrs={"class": "form-control", "placeholder": "材料名"}),
-        "amount": forms.TextInput(attrs={"class": "form-control", "placeholder": "例: 200g / 大さじ1"}),
+        "amount": forms.TextInput(attrs={"class": "form-control", "placeholder": "例: 大さじ1 / 100g / 適量"}),
+        "group": forms.TextInput(attrs={"class": "form-control form-control-sm", "placeholder": "A / タレ…"}),
     },
     labels={
         "name": "材料名",
         "amount": "分量",
+        "group": "グループ",
     },
 )
 

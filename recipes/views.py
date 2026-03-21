@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import IngredientFormSet, RecipeForm, StepFormSet
 from .models import NutritionCache, Recipe
+from .recipe_reader import RecipeReadError, extract_recipe_info
 
 logger = logging.getLogger(__name__)
 
@@ -98,18 +99,8 @@ def recipe_edit(request, pk):
             form.save()
             ingredient_formset.save()
 
-            # 手順の order を行番号で自動設定
-            steps = step_formset.save(commit=False)
-            # 既存の手順を一旦削除してから保存し直すことで順番を整合させる
-            recipe.steps.exclude(
-                pk__in=[s.pk for s in steps if s.pk]
-            ).delete()
-            for i, step in enumerate(steps, 1):
-                step.order = i
-                step.recipe = recipe
-                step.save()
-            for step in step_formset.deleted_objects:
-                step.delete()
+            # 手順の保存（削除チェック分も含めてformsetに任せる）
+            step_formset.save()
             # 残った手順の order を振り直す
             for i, step in enumerate(recipe.steps.all(), 1):
                 if step.order != i:
@@ -209,3 +200,24 @@ def get_nutrition(request, pk):
     except Exception as e:
         logger.error("栄養価取得エラー: %s", e)
         return JsonResponse({"error": "栄養価の取得に失敗しました。"}, status=500)
+
+
+@login_required
+def read_recipe_image(request):
+    """手書きレシピ画像をAIで読み取り、JSONで返す。"""
+    if request.method != "POST":
+        return JsonResponse({"error": "POSTのみ対応しています。"}, status=405)
+
+    image_file = request.FILES.get("image")
+    if not image_file:
+        return JsonResponse({"error": "画像ファイルが送信されていません。"}, status=400)
+
+    try:
+        data = extract_recipe_info(image_file)
+        return JsonResponse(data)
+    except RecipeReadError as e:
+        logger.error("レシピ読み取りエラー: %s", e)
+        return JsonResponse({"error": str(e)}, status=500)
+    except Exception as e:
+        logger.error("レシピ読み取り予期せぬエラー: %s", e)
+        return JsonResponse({"error": "レシピの読み取りに失敗しました。"}, status=500)

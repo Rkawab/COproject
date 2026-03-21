@@ -42,6 +42,7 @@ class Ingredient(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name="ingredients")
     name = models.CharField(max_length=100, verbose_name="材料名")
     amount = models.CharField(max_length=50, verbose_name="分量", blank=True)
+    group = models.CharField(max_length=20, verbose_name="グループ", blank=True)
 
     class Meta:
         db_table = "ingredient"

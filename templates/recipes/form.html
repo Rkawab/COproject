@@ -5,6 +5,35 @@
 {% block content %}
 <h2 class="mt-3">{{ title }}</h2>
 
+<!-- レシピ画像読み取り -->
+<div class="card mb-3 shadow-sm border-info">
+    <div class="card-header fw-bold bg-info bg-opacity-10">
+        <span class="me-1">&#128247;</span> 手書きレシピを画像から読み取り
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-2">
+            手書きノートやレシピの写真をアップロードすると、AIが内容を読み取ってフォームに自動入力します。
+        </p>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <input type="file" id="recipe-image-input" accept="image/*" capture="environment" class="form-control" style="max-width: 350px;">
+            <button type="button" id="read-image-btn" class="btn btn-info" disabled>読み取り開始</button>
+        </div>
+        <!-- プレビュー -->
+        <div id="image-preview" class="mt-2 d-none">
+            <img id="image-preview-img" src="" alt="プレビュー" style="max-height: 200px; border-radius: 8px;" class="border">
+        </div>
+        <!-- ステータス -->
+        <div id="read-status" class="mt-2 d-none">
+            <div class="spinner-border spinner-border-sm text-info me-1" role="status"></div>
+            <span class="text-muted small">AIが読み取り中…（10〜20秒ほどかかります）</span>
+        </div>
+        <div id="read-error" class="mt-2 d-none alert alert-danger py-1 small"></div>
+        <div id="read-success" class="mt-2 d-none alert alert-success py-1 small">
+            読み取り完了！ 内容を確認・修正してから登録してください。
+        </div>
+    </div>
+</div>
+
 <form method="POST" id="recipe-form">
     {% csrf_token %}
 
@@ -44,16 +73,29 @@
     <div class="card mb-3 shadow-sm">
         <div class="card-header fw-bold">材料</div>
         <div class="card-body">
+            <!-- グループ説明 -->
+            <div class="text-muted small mb-2">
+                調味料などをまとめる場合は「グループ」欄に <strong>A</strong>、<strong>タレ</strong> などを入力してください。手順で「(A) を加える」と記述できます。
+            </div>
+            <!-- 列ヘッダー -->
+            <div class="row g-2 mb-1 d-none d-sm-flex">
+                <div class="col-4"><span class="small text-muted">材料名</span></div>
+                <div class="col-3"><span class="small text-muted">分量</span></div>
+                <div class="col-3"><span class="small text-muted">グループ (A / タレ…)</span></div>
+            </div>
             {{ ingredient_formset.management_form }}
             <div id="ingredient-formset">
                 {% for ing_form in ingredient_formset %}
-                <div class="ingredient-row row g-2 mb-2 align-items-center">
-                    {% if ing_form.instance.pk %}{{ ing_form.id }}{% else %}{{ ing_form.id }}{% endif %}
-                    <div class="col-5">
+                <div class="ingredient-row row g-2 mb-2 align-items-center" data-group="{{ ing_form.instance.group }}">
+                    {{ ing_form.id }}
+                    <div class="col-4">
                         {% render_field ing_form.name class="form-control" placeholder="材料名" %}
                     </div>
-                    <div class="col-5">
-                        {% render_field ing_form.amount class="form-control" placeholder="例: 200g" %}
+                    <div class="col-3">
+                        {% render_field ing_form.amount class="form-control" placeholder="例: 大さじ1" %}
+                    </div>
+                    <div class="col-3">
+                        {% render_field ing_form.group class="form-control form-control-sm group-input" placeholder="A / タレ…" %}
                     </div>
                     <div class="col-2 text-center">
                         {% if ing_form.instance.pk %}
@@ -69,13 +111,16 @@
             </div>
             <!-- 追加行のテンプレート（hidden） -->
             <div id="ingredient-empty-row" class="d-none">
-                <div class="ingredient-row row g-2 mb-2 align-items-center">
-                    <div class="col-5">
+                <div class="ingredient-row row g-2 mb-2 align-items-center" data-group="">
+                    <input type="hidden" name="ingredients-__prefix__-id" value="">
+                    <div class="col-4">
                         <input type="text" name="ingredients-__prefix__-name" class="form-control" placeholder="材料名">
-                        <input type="hidden" name="ingredients-__prefix__-id" value="">
                     </div>
-                    <div class="col-5">
-                        <input type="text" name="ingredients-__prefix__-amount" class="form-control" placeholder="例: 200g">
+                    <div class="col-3">
+                        <input type="text" name="ingredients-__prefix__-amount" class="form-control" placeholder="例: 大さじ1">
+                    </div>
+                    <div class="col-3">
+                        <input type="text" name="ingredients-__prefix__-group" class="form-control form-control-sm group-input" placeholder="A / タレ…">
                     </div>
                     <div class="col-2 text-center">
                         <button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button>
@@ -177,6 +222,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ingFormset.insertAdjacentHTML('beforeend', html);
         ingTotal.value = idx + 1;
         bindRemoveButtons();
+        bindGroupInputs();
     });
 
     // ---- 手順行の追加・削除 ----
@@ -195,7 +241,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     bindRemoveButtons();
+    bindGroupInputs();
     updateStepNumbers();
+    updateGroupHeaders();
 });
 
 function bindRemoveButtons() {
@@ -203,7 +251,39 @@ function bindRemoveButtons() {
         btn.onclick = function () {
             btn.closest('.ingredient-row, .step-row').remove();
             updateStepNumbers();
+            updateGroupHeaders();
         };
+    });
+}
+
+function bindGroupInputs() {
+    document.querySelectorAll('#ingredient-formset .group-input').forEach(function (input) {
+        if (!input.dataset.bound) {
+            input.dataset.bound = '1';
+            input.addEventListener('input', updateGroupHeaders);
+        }
+    });
+}
+
+// ---- 材料グループの視覚的ヘッダー表示 ----
+function updateGroupHeaders() {
+    // 既存のグループヘッダーを削除
+    document.querySelectorAll('.group-header-marker').forEach(function (el) { el.remove(); });
+
+    const rows = document.querySelectorAll('#ingredient-formset .ingredient-row');
+    let lastGroup = null;
+
+    rows.forEach(function (row) {
+        const groupInput = row.querySelector('.group-input');
+        const groupVal = groupInput ? groupInput.value.trim() : '';
+
+        if (groupVal && groupVal !== lastGroup) {
+            const header = document.createElement('div');
+            header.className = 'group-header-marker d-flex align-items-center gap-2 py-1 px-2 mb-1 rounded bg-warning bg-opacity-10 border-start border-3 border-warning';
+            header.innerHTML = '<span class="fw-bold text-warning-emphasis small">(' + groupVal + ')</span><span class="text-muted small">グループ</span>';
+            row.parentNode.insertBefore(header, row);
+        }
+        lastGroup = groupVal || null;
     });
 }
 
@@ -236,5 +316,163 @@ function updateStepNumbers() {
 document.getElementById('recipe-form').addEventListener('submit', function () {
     updateStepNumbers();
 });
+
+// ---- 画像読み取り ----
+(function () {
+    const fileInput = document.getElementById('recipe-image-input');
+    const readBtn   = document.getElementById('read-image-btn');
+    const preview   = document.getElementById('image-preview');
+    const previewImg = document.getElementById('image-preview-img');
+    const statusEl  = document.getElementById('read-status');
+    const errorEl   = document.getElementById('read-error');
+    const successEl = document.getElementById('read-success');
+
+    fileInput.addEventListener('change', function () {
+        const file = fileInput.files[0];
+        readBtn.disabled = !file;
+        errorEl.classList.add('d-none');
+        successEl.classList.add('d-none');
+        if (file) {
+            const url = URL.createObjectURL(file);
+            previewImg.src = url;
+            preview.classList.remove('d-none');
+        } else {
+            preview.classList.add('d-none');
+        }
+    });
+
+    readBtn.addEventListener('click', function () {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        readBtn.disabled = true;
+        statusEl.classList.remove('d-none');
+        errorEl.classList.add('d-none');
+        successEl.classList.add('d-none');
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch('{% url "recipes:read_image" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData,
+        })
+        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+        .then(function (result) {
+            statusEl.classList.add('d-none');
+            if (!result.ok) {
+                errorEl.textContent = result.data.error || '読み取りに失敗しました。';
+                errorEl.classList.remove('d-none');
+                readBtn.disabled = false;
+                return;
+            }
+            fillFormFromAI(result.data);
+            successEl.classList.remove('d-none');
+            readBtn.disabled = false;
+        })
+        .catch(function (err) {
+            statusEl.classList.add('d-none');
+            errorEl.textContent = '通信エラーが発生しました: ' + err.message;
+            errorEl.classList.remove('d-none');
+            readBtn.disabled = false;
+        });
+    });
+
+    function fillFormFromAI(data) {
+        // 基本情報
+        var nameInput = document.getElementById('id_name');
+        if (nameInput && data.name) nameInput.value = data.name;
+
+        var genre1 = document.getElementById('id_genre1');
+        if (genre1 && data.genre1) genre1.value = data.genre1;
+
+        var genre2 = document.getElementById('id_genre2');
+        if (genre2 && data.genre2) {
+            genre2.value = data.genre2;
+            toggleGenre3();
+        }
+
+        var genre3 = document.getElementById('id_genre3');
+        if (genre3 && data.genre3 !== undefined) genre3.value = data.genre3;
+
+        var servings = document.getElementById('id_servings');
+        if (servings && data.servings) servings.value = data.servings;
+
+        // 材料を入力
+        if (data.ingredients && data.ingredients.length > 0) {
+            fillIngredients(data.ingredients);
+        }
+
+        // 手順を入力
+        if (data.steps && data.steps.length > 0) {
+            fillSteps(data.steps);
+        }
+    }
+
+    function fillIngredients(ingredients) {
+        var formset = document.getElementById('ingredient-formset');
+        var empty   = document.getElementById('ingredient-empty-row');
+        var total   = document.getElementById('id_ingredients-TOTAL_FORMS');
+
+        // 既存の空行を削除（pk がない行）
+        formset.querySelectorAll('.ingredient-row').forEach(function (row) {
+            var idInput = row.querySelector('input[name$="-id"]');
+            if (idInput && !idInput.value) row.remove();
+        });
+
+        // 既存行の数を再計算
+        var existingCount = formset.querySelectorAll('.ingredient-row').length;
+
+        ingredients.forEach(function (ing, i) {
+            var idx = existingCount + i;
+            var html = empty.innerHTML.replace(/__prefix__/g, idx);
+            formset.insertAdjacentHTML('beforeend', html);
+
+            var row = formset.lastElementChild;
+            var nameInput = row.querySelector('input[name$="-name"]');
+            var amountInput = row.querySelector('input[name$="-amount"]');
+            var groupInput = row.querySelector('input[name$="-group"]');
+            if (nameInput) nameInput.value = ing.name || '';
+            if (amountInput) amountInput.value = ing.amount || '';
+            if (groupInput) groupInput.value = ing.group || '';
+        });
+
+        total.value = existingCount + ingredients.length;
+        bindRemoveButtons();
+        bindGroupInputs();
+        updateGroupHeaders();
+    }
+
+    function fillSteps(steps) {
+        var formset = document.getElementById('step-formset');
+        var empty   = document.getElementById('step-empty-row');
+        var total   = document.getElementById('id_steps-TOTAL_FORMS');
+
+        // 既存の空行を削除
+        formset.querySelectorAll('.step-row').forEach(function (row) {
+            var idInput = row.querySelector('input[name$="-id"]');
+            if (idInput && !idInput.value) row.remove();
+        });
+
+        var existingCount = formset.querySelectorAll('.step-row').length;
+
+        steps.forEach(function (step, i) {
+            var idx = existingCount + i;
+            var html = empty.innerHTML.replace(/__prefix__/g, idx);
+            formset.insertAdjacentHTML('beforeend', html);
+
+            var row = formset.lastElementChild;
+            var descInput = row.querySelector('textarea[name$="-description"]');
+            if (descInput) descInput.value = step;
+        });
+
+        total.value = existingCount + steps.length;
+        bindRemoveButtons();
+        updateStepNumbers();
+    }
+})();
 </script>
 {% endblock %}
