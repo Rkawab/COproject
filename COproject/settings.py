@@ -187,3 +187,9 @@ CSRF_TRUSTED_ORIGINS = [
     "https://household-app-bacon.net",
 ]
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# セッション／CSRF Cookieを /budget と競合しないよう分離
+SESSION_COOKIE_NAME = "sessionid_cooking"
+SESSION_COOKIE_PATH = "/cooking/"
+CSRF_COOKIE_NAME = "csrftoken_cooking"
+CSRF_COOKIE_PATH = "/cooking/"
