@@ -22,7 +22,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "dummy-development-secret")
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = [
     "localhost",
@@ -188,8 +188,6 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# セッション／CSRF Cookieを /budget と競合しないよう分離
+# セッション／CSRF Cookieを /budget と競合しないよう分離（名前で区別）
 SESSION_COOKIE_NAME = "sessionid_cooking"
-SESSION_COOKIE_PATH = "/cooking/"
 CSRF_COOKIE_NAME = "csrftoken_cooking"
-CSRF_COOKIE_PATH = "/cooking/"
