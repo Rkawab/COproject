@@ -45,6 +45,30 @@
     </div>
 </div>
 
+<!-- レシピURL読み取り -->
+<div class="card mb-3 shadow-sm border-success">
+    <div class="card-header fw-bold bg-success bg-opacity-10">
+        <span class="me-1">&#128279;</span> レシピURLから読み取り
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-2">
+            レシピサイトのURLを貼り付けると、料理名・材料・手順を自動入力します。
+        </p>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <input type="url" id="recipe-url-input" class="form-control" placeholder="https://..." style="max-width: 450px;">
+            <button type="button" id="read-url-btn" class="btn btn-success" disabled>読み取り</button>
+        </div>
+        <div id="url-read-status" class="mt-2 d-none">
+            <div class="spinner-border spinner-border-sm text-success me-1" role="status"></div>
+            <span class="text-muted small">レシピを取得中…</span>
+        </div>
+        <div id="url-read-error" class="mt-2 d-none alert alert-danger py-1 small"></div>
+        <div id="url-read-success" class="mt-2 d-none alert alert-success py-1 small">
+            読み取り完了！ 内容を確認・修正してから登録してください。
+        </div>
+    </div>
+</div>
+
 <form method="POST" id="recipe-form">
     {% csrf_token %}
 
@@ -429,6 +453,9 @@ document.getElementById('recipe-form').addEventListener('submit', function () {
     readBtn.addEventListener('click', startRead);
     readBtnMobile.addEventListener('click', startRead);
 
+    // fillFormFromAI をグローバルに公開（URL読み取りからも使う）
+    window.fillFormFromAI = fillFormFromAI;
+
     function fillFormFromAI(data) {
         // 基本情報
         var nameInput = document.getElementById('id_name');
@@ -521,6 +548,60 @@ document.getElementById('recipe-form').addEventListener('submit', function () {
         bindRemoveButtons();
         updateStepNumbers();
     }
+})();
+
+// ---- URL読み取り ----
+(function () {
+    var urlInput   = document.getElementById('recipe-url-input');
+    var readUrlBtn = document.getElementById('read-url-btn');
+    var statusEl   = document.getElementById('url-read-status');
+    var errorEl    = document.getElementById('url-read-error');
+    var successEl  = document.getElementById('url-read-success');
+
+    urlInput.addEventListener('input', function () {
+        readUrlBtn.disabled = !urlInput.value.trim();
+        errorEl.classList.add('d-none');
+        successEl.classList.add('d-none');
+    });
+
+    readUrlBtn.addEventListener('click', function () {
+        var url = urlInput.value.trim();
+        if (!url) return;
+
+        readUrlBtn.disabled = true;
+        statusEl.classList.remove('d-none');
+        errorEl.classList.add('d-none');
+        successEl.classList.add('d-none');
+
+        var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        var formData = new FormData();
+        formData.append('url', url);
+
+        fetch('{% url "recipes:read_url" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData,
+        })
+        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+        .then(function (result) {
+            statusEl.classList.add('d-none');
+            if (!result.ok) {
+                errorEl.textContent = result.data.error || '読み取りに失敗しました。';
+                errorEl.classList.remove('d-none');
+                readUrlBtn.disabled = false;
+                return;
+            }
+            window.fillFormFromAI(result.data);
+            successEl.classList.remove('d-none');
+            readUrlBtn.disabled = false;
+        })
+        .catch(function (err) {
+            statusEl.classList.add('d-none');
+            errorEl.textContent = '通信エラーが発生しました: ' + err.message;
+            errorEl.classList.remove('d-none');
+            readUrlBtn.disabled = false;
+        });
+    });
 })();
 </script>
 {% endblock %}

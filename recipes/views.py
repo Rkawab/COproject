@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .forms import IngredientFormSet, RecipeForm, StepFormSet
 from .models import NutritionCache, Recipe
 from .recipe_reader import RecipeReadError, extract_recipe_info
+from .recipe_url_reader import RecipeURLError, fetch_recipe_from_url
 
 logger = logging.getLogger(__name__)
 
@@ -236,3 +237,24 @@ def read_recipe_image(request):
     except Exception as e:
         logger.error("レシピ読み取り予期せぬエラー: %s", e)
         return JsonResponse({"error": "レシピの読み取りに失敗しました。"}, status=500)
+
+
+@login_required
+def read_recipe_url(request):
+    """レシピURLからJSON-LD等を解析し、レシピ情報をJSONで返す。"""
+    if request.method != "POST":
+        return JsonResponse({"error": "POSTのみ対応しています。"}, status=405)
+
+    url = request.POST.get("url", "").strip()
+    if not url:
+        return JsonResponse({"error": "URLが入力されていません。"}, status=400)
+
+    try:
+        data = fetch_recipe_from_url(url)
+        return JsonResponse(data)
+    except RecipeURLError as e:
+        logger.error("レシピURL解析エラー: %s", e)
+        return JsonResponse({"error": str(e)}, status=400)
+    except Exception as e:
+        logger.error("レシピURL解析 予期せぬエラー: %s", e)
+        return JsonResponse({"error": "レシピURLの解析に失敗しました。"}, status=500)
