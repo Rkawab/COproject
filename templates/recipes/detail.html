@@ -31,13 +31,22 @@
             <div class="card shadow-sm h-100">
                 <div class="card-header fw-bold">材料（{{ recipe.servings }}人前）</div>
                 <div class="card-body">
-                    {% if recipe.ingredients.all %}
+                    {% if grouped_ingredients %}
                     <ul class="list-group list-group-flush">
-                        {% for ing in recipe.ingredients.all %}
+                        {% for group_name, items in grouped_ingredients %}
+                        {% if group_name %}
+                        <li class="list-group-item px-0 py-1 border-0">
+                            <div class="d-flex align-items-center gap-2 py-1 px-2 rounded bg-warning bg-opacity-10 border-start border-3 border-warning">
+                                <span class="fw-bold text-warning-emphasis small">({{ group_name }})</span>
+                            </div>
+                        </li>
+                        {% endif %}
+                        {% for ing in items %}
                         <li class="list-group-item px-0 d-flex justify-content-between">
                             <span>{{ ing.name }}</span>
                             <span class="text-muted">{{ ing.amount }}</span>
                         </li>
+                        {% endfor %}
                         {% endfor %}
                     </ul>
                     {% else %}

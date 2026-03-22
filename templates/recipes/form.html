@@ -14,9 +14,26 @@
         <p class="text-muted small mb-2">
             手書きノートやレシピの写真をアップロードすると、AIが内容を読み取ってフォームに自動入力します。
         </p>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            <input type="file" id="recipe-image-input" accept="image/*" capture="environment" class="form-control" style="max-width: 350px;">
+        <!-- PC用: ファイル選択 -->
+        <div id="image-input-pc" class="d-flex align-items-center gap-2 flex-wrap">
+            <input type="file" id="recipe-image-input" accept="image/*" class="form-control" style="max-width: 350px;">
             <button type="button" id="read-image-btn" class="btn btn-info" disabled>読み取り開始</button>
+        </div>
+        <!-- スマホ用: カメラ/ライブラリ選択ボタン -->
+        <div id="image-input-mobile" class="d-none">
+            <div class="d-flex gap-2 flex-wrap mb-2">
+                <button type="button" id="mobile-camera-btn" class="btn btn-outline-info">
+                    &#128247; カメラで撮影
+                </button>
+                <button type="button" id="mobile-library-btn" class="btn btn-outline-secondary">
+                    &#128444; ライブラリから選択
+                </button>
+            </div>
+            <!-- カメラ用hidden input -->
+            <input type="file" id="mobile-camera-input" accept="image/*" capture="environment" class="d-none">
+            <!-- ライブラリ用hidden input -->
+            <input type="file" id="mobile-library-input" accept="image/*" class="d-none">
+            <button type="button" id="read-image-btn-mobile" class="btn btn-info" disabled>読み取り開始</button>
         </div>
         <!-- プレビュー -->
         <div id="image-preview" class="mt-2 d-none">
@@ -319,41 +336,83 @@ document.getElementById('recipe-form').addEventListener('submit', function () {
 
 // ---- 画像読み取り ----
 (function () {
-    const fileInput = document.getElementById('recipe-image-input');
-    const readBtn   = document.getElementById('read-image-btn');
-    const preview   = document.getElementById('image-preview');
-    const previewImg = document.getElementById('image-preview-img');
-    const statusEl  = document.getElementById('read-status');
-    const errorEl   = document.getElementById('read-error');
-    const successEl = document.getElementById('read-success');
+    // スマホ判定
+    var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    var pcSection = document.getElementById('image-input-pc');
+    var mobileSection = document.getElementById('image-input-mobile');
 
-    fileInput.addEventListener('change', function () {
-        const file = fileInput.files[0];
-        readBtn.disabled = !file;
+    // 選択されたファイルを保持
+    var selectedFile = null;
+
+    if (isMobile) {
+        pcSection.classList.add('d-none');
+        mobileSection.classList.remove('d-none');
+    }
+
+    var fileInput = document.getElementById('recipe-image-input');
+    var readBtn   = document.getElementById('read-image-btn');
+
+    // スマホ用の要素
+    var cameraInput  = document.getElementById('mobile-camera-input');
+    var libraryInput = document.getElementById('mobile-library-input');
+    var cameraBtn    = document.getElementById('mobile-camera-btn');
+    var libraryBtn   = document.getElementById('mobile-library-btn');
+    var readBtnMobile = document.getElementById('read-image-btn-mobile');
+
+    var preview   = document.getElementById('image-preview');
+    var previewImg = document.getElementById('image-preview-img');
+    var statusEl  = document.getElementById('read-status');
+    var errorEl   = document.getElementById('read-error');
+    var successEl = document.getElementById('read-success');
+
+    // ファイル選択時の共通処理
+    function onFileSelected(file) {
+        selectedFile = file;
+        var activeReadBtn = isMobile ? readBtnMobile : readBtn;
+        activeReadBtn.disabled = !file;
         errorEl.classList.add('d-none');
         successEl.classList.add('d-none');
         if (file) {
-            const url = URL.createObjectURL(file);
+            var url = URL.createObjectURL(file);
             previewImg.src = url;
             preview.classList.remove('d-none');
         } else {
             preview.classList.add('d-none');
         }
+    }
+
+    // PC用
+    fileInput.addEventListener('change', function () {
+        onFileSelected(fileInput.files[0]);
     });
 
-    readBtn.addEventListener('click', function () {
-        const file = fileInput.files[0];
+    // スマホ用: カメラボタン
+    cameraBtn.addEventListener('click', function () { cameraInput.click(); });
+    cameraInput.addEventListener('change', function () {
+        onFileSelected(cameraInput.files[0]);
+    });
+
+    // スマホ用: ライブラリボタン
+    libraryBtn.addEventListener('click', function () { libraryInput.click(); });
+    libraryInput.addEventListener('change', function () {
+        onFileSelected(libraryInput.files[0]);
+    });
+
+    // 読み取り開始（PC/スマホ共通）
+    function startRead() {
+        var file = selectedFile || (fileInput.files && fileInput.files[0]);
         if (!file) return;
 
-        readBtn.disabled = true;
+        var activeReadBtn = isMobile ? readBtnMobile : readBtn;
+        activeReadBtn.disabled = true;
         statusEl.classList.remove('d-none');
         errorEl.classList.add('d-none');
         successEl.classList.add('d-none');
 
-        const formData = new FormData();
+        var formData = new FormData();
         formData.append('image', file);
 
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
         fetch('{% url "recipes:read_image" %}', {
             method: 'POST',
@@ -366,20 +425,23 @@ document.getElementById('recipe-form').addEventListener('submit', function () {
             if (!result.ok) {
                 errorEl.textContent = result.data.error || '読み取りに失敗しました。';
                 errorEl.classList.remove('d-none');
-                readBtn.disabled = false;
+                activeReadBtn.disabled = false;
                 return;
             }
             fillFormFromAI(result.data);
             successEl.classList.remove('d-none');
-            readBtn.disabled = false;
+            activeReadBtn.disabled = false;
         })
         .catch(function (err) {
             statusEl.classList.add('d-none');
             errorEl.textContent = '通信エラーが発生しました: ' + err.message;
             errorEl.classList.remove('d-none');
-            readBtn.disabled = false;
+            activeReadBtn.disabled = false;
         });
-    });
+    }
+
+    readBtn.addEventListener('click', startRead);
+    readBtnMobile.addEventListener('click', startRead);
 
     function fillFormFromAI(data) {
         // 基本情報

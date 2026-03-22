@@ -80,9 +80,24 @@ def recipe_detail(request, pk):
         Recipe.objects.prefetch_related("ingredients", "steps"), pk=pk
     )
     nutrition = NutritionCache.objects.filter(recipe_name=recipe.name).first()
+
+    # 材料をグループ別に整理（グループなし→各グループの順）
+    ingredients = list(recipe.ingredients.all())
+    ungrouped = [i for i in ingredients if not i.group]
+    grouped_dict = {}
+    for i in ingredients:
+        if i.group:
+            grouped_dict.setdefault(i.group, []).append(i)
+    grouped_ingredients = []
+    if ungrouped:
+        grouped_ingredients.append(("", ungrouped))
+    for group_name, items in grouped_dict.items():
+        grouped_ingredients.append((group_name, items))
+
     return render(request, "recipes/detail.html", {
         "recipe": recipe,
         "nutrition": nutrition,
+        "grouped_ingredients": grouped_ingredients,
     })
 
 
