@@ -22,7 +22,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "dummy-development-secret")
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
 
 ALLOWED_HOSTS = [
     "localhost",
@@ -46,8 +46,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -136,8 +136,6 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
-
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
@@ -181,6 +179,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 _script_name = os.getenv("FORCE_SCRIPT_NAME", "")
 if _script_name:
     FORCE_SCRIPT_NAME = _script_name
+    STATIC_URL = f"{_script_name}/static/"
+else:
+    STATIC_URL = "/static/"
 
 # プロキシ経由のHTTPS判定（Cloudflare Tunnel 共通）
 CSRF_TRUSTED_ORIGINS = [
