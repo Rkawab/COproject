@@ -27,4 +27,4 @@ jobs:
           python manage.py collectstatic --noinput
 
       - name: Restart Gunicorn
-        run: sudo systemctl restart coproject
+        run: sudo systemctl reload coproject
