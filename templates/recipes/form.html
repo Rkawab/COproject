@@ -19,19 +19,13 @@
             <input type="file" id="recipe-image-input" accept="image/*" class="form-control" style="max-width: 350px;">
             <button type="button" id="read-image-btn" class="btn btn-info" disabled>読み取り開始</button>
         </div>
-        <!-- スマホ用: カメラ/ライブラリ選択ボタン -->
+        <!-- スマホ用: 画像選択ボタン（OSの標準UIでカメラ/ライブラリを選択） -->
         <div id="image-input-mobile" class="d-none">
             <div class="d-flex gap-2 flex-wrap mb-2">
-                <button type="button" id="mobile-camera-btn" class="btn btn-outline-info">
-                    &#128247; カメラで撮影
-                </button>
-                <button type="button" id="mobile-library-btn" class="btn btn-outline-secondary">
-                    &#128444; ライブラリから選択
+                <button type="button" id="mobile-library-btn" class="btn btn-outline-info">
+                    &#128247; 写真を選択・撮影
                 </button>
             </div>
-            <!-- カメラ用hidden input -->
-            <input type="file" id="mobile-camera-input" accept="image/*" capture="environment" class="d-none">
-            <!-- ライブラリ用hidden input -->
             <input type="file" id="mobile-library-input" accept="image/*" class="d-none">
             <button type="button" id="read-image-btn-mobile" class="btn btn-info" disabled>読み取り開始</button>
         </div>
@@ -353,9 +347,7 @@ document.getElementById('recipe-form').addEventListener('submit', function () {
     var readBtn   = document.getElementById('read-image-btn');
 
     // スマホ用の要素
-    var cameraInput  = document.getElementById('mobile-camera-input');
     var libraryInput = document.getElementById('mobile-library-input');
-    var cameraBtn    = document.getElementById('mobile-camera-btn');
     var libraryBtn   = document.getElementById('mobile-library-btn');
     var readBtnMobile = document.getElementById('read-image-btn-mobile');
 
@@ -386,13 +378,7 @@ document.getElementById('recipe-form').addEventListener('submit', function () {
         onFileSelected(fileInput.files[0]);
     });
 
-    // スマホ用: カメラボタン
-    cameraBtn.addEventListener('click', function () { cameraInput.click(); });
-    cameraInput.addEventListener('change', function () {
-        onFileSelected(cameraInput.files[0]);
-    });
-
-    // スマホ用: ライブラリボタン
+    // スマホ用: 画像選択ボタン
     libraryBtn.addEventListener('click', function () { libraryInput.click(); });
     libraryInput.addEventListener('change', function () {
         onFileSelected(libraryInput.files[0]);
