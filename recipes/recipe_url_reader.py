@@ -27,6 +27,7 @@ GENRE2_MAP = {
     "主菜": ["主菜", "メイン", "肉", "魚", "main"],
     "副菜": ["副菜", "サラダ", "サイド", "side", "付け合わせ"],
     "汁物": ["汁物", "スープ", "味噌汁", "soup"],
+    "その他": ["デザート", "スイーツ", "ケーキ", "クッキー", "プリン", "お菓子", "ドリンク", "飲み物", "dessert", "sweet"],
 }
 
 GENRE3_MAP = {
@@ -211,7 +212,7 @@ def _extract_nadia_recipe(soup):
     genre1, genre2, genre3 = _guess_genres(hint_text, ingredients)
 
     # Nadiaの recipeType.name は「副菜」「主菜」等が直接入っている場合がある
-    if not genre2 and type_name in ("主食", "主菜", "副菜", "汁物"):
+    if not genre2 and type_name in ("主食", "主菜", "副菜", "汁物", "その他"):
         genre2 = type_name
 
     return {
