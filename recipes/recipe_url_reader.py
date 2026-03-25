@@ -229,8 +229,22 @@ def _extract_nadia_recipe(soup):
 def _parse_ingredient_text(text):
     """「鶏もも肉 300g」のようなテキストを名前と分量に分割する。"""
     text = text.strip()
-    # よくあるパターン: 「材料名 分量」または「材料名：分量」
+
+    # 分量の先頭に来る単位・表現のパターン
+    amount_prefixes = (
+        r"大さじ|小さじ|おおさじ|こさじ"
+        r"|カップ|合|cc|ml|mL|ℓ|リットル"
+        r"|g|kg|本|枚|個|切れ|片|丁|缶|袋|束|パック|玉|株|房|把"
+        r"|少々|少量|適量|適宜|ひとつまみ|ひとふり|お好み|たっぷり|ひたひた"
+    )
+
+    # パターン1: 「材料名 数字...」（例: 鶏もも肉 300g）
     match = re.match(r"^(.+?)\s+([\d０-９].*)$", text)
+    if match:
+        return {"name": match.group(1).strip(), "amount": match.group(2).strip(), "group": ""}
+
+    # パターン2: 「材料名 単位表現...」（例: 醤油 大さじ1、塩 少々）
+    match = re.match(r"^(.+?)\s+((?:" + amount_prefixes + r").*)$", text)
     if match:
         return {"name": match.group(1).strip(), "amount": match.group(2).strip(), "group": ""}
 
