@@ -15,6 +15,9 @@
                 <span class="badge bg-secondary">{{ recipe.genre3 }}</span>
                 {% endif %}
                 <span class="text-muted small ms-2">{{ recipe.servings }}人前</span>
+                <button class="btn btn-outline-primary btn-sm py-0 px-1 ms-2 copy-url-btn" onclick="copyRecipeUrl(this)" title="URLをコピー">
+                    <small>URLをコピー</small>
+                </button>
             </div>
             <p class="text-muted small mb-0">登録日: {{ recipe.created_at|date:"Y年m月d日" }}</p>
         </div>
@@ -124,6 +127,16 @@
 {% endblock %}
 
 {% block extra_js %}
+<script>
+function copyRecipeUrl(btn) {
+    var url = location.origin + '/cooking/recipes/{{ recipe.pk }}/';
+    navigator.clipboard.writeText(url).then(function () {
+        var orig = btn.innerHTML;
+        btn.innerHTML = '<small>✓</small>';
+        setTimeout(function () { btn.innerHTML = orig; }, 1500);
+    });
+}
+</script>
 {% if not nutrition %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
