@@ -2,6 +2,7 @@
 
 JSON-LD（Schema.org Recipe）を優先的に解析し、
 見つからない場合はサイト固有のパーサー（Nadia等）にフォールバックする。
+材料テキストの名前・分量・グループへの分割にはOpenAI APIを使用する。
 """
 
 import json
@@ -11,8 +12,12 @@ from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
+from django.conf import settings
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
+
+client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 # ジャンル推測用のキーワードマッピング
 GENRE1_KEYWORDS = {
@@ -122,11 +127,9 @@ def _parse_jsonld_recipe(data):
     """JSON-LD Recipeスキーマを共通フォーマットに変換する。"""
     name = data.get("name", "")
 
-    # 材料
-    ingredients = []
-    for item in data.get("recipeIngredient", []):
-        parsed = _parse_ingredient_text(str(item))
-        ingredients.append(parsed)
+    # 材料（AIで分割）
+    raw_ingredients = [str(item) for item in data.get("recipeIngredient", [])]
+    ingredients = _parse_ingredients_with_ai(raw_ingredients)
 
     # 手順
     steps = []
@@ -226,35 +229,88 @@ def _extract_nadia_recipe(soup):
     }
 
 
-def _parse_ingredient_text(text):
-    """「鶏もも肉 300g」のようなテキストを名前と分量に分割する。"""
-    text = text.strip()
+def _parse_ingredients_with_ai(raw_ingredients):
+    """材料テキストのリストをOpenAI APIで名前・分量・グループに分割する。
 
-    # 分量の先頭に来る単位・表現のパターン
-    amount_prefixes = (
-        r"大さじ|小さじ|おおさじ|こさじ"
-        r"|カップ|合|cc|ml|mL|ℓ|リットル"
-        r"|g|kg|本|枚|個|切れ|片|丁|缶|袋|束|パック|玉|株|房|把"
-        r"|少々|少量|適量|適宜|ひとつまみ|ひとふり|お好み|たっぷり|ひたひた"
-    )
+    Args:
+        raw_ingredients: ["鶏もも肉 300g", "醤油 大さじ1", ...] のような文字列リスト
 
-    # パターン1: 「材料名 数字...」（例: 鶏もも肉 300g）
-    match = re.match(r"^(.+?)\s+([\d０-９].*)$", text)
-    if match:
-        return {"name": match.group(1).strip(), "amount": match.group(2).strip(), "group": ""}
+    Returns:
+        [{"name": "鶏もも肉", "amount": "300g", "group": ""}, ...]
+    """
+    if not raw_ingredients:
+        return []
 
-    # パターン2: 「材料名 単位表現...」（例: 醤油 大さじ1、塩 少々）
-    match = re.match(r"^(.+?)\s+((?:" + amount_prefixes + r").*)$", text)
-    if match:
-        return {"name": match.group(1).strip(), "amount": match.group(2).strip(), "group": ""}
+    ingredient_lines = "\n".join(f"- {item}" for item in raw_ingredients)
 
-    # 区切り文字で分割
-    for sep in ["：", ":", "…", "−", "–"]:
-        if sep in text:
-            parts = text.split(sep, 1)
-            return {"name": parts[0].strip(), "amount": parts[1].strip(), "group": ""}
+    user_prompt = f"""
+以下はレシピサイトから取得した材料テキストの一覧です。
+各行を「材料名」「分量」「グループ」に分割して JSON 配列で返してください。
 
-    return {"name": text, "amount": "", "group": ""}
+ルール:
+- name: 材料名のみ。分量や単位は含めない。
+- amount: 分量（「大さじ1」「300g」「適量」「少々」など）。分量がない場合は空文字。
+- group: 調味料グループ（A, B, タレ等）がある場合はそのグループ名。なければ空文字。
+  * 「(A)」「【A】」「☆」「★」「◎」などの記号がグループを示す場合がある。
+  * 記号がグループの場合、name からその記号を除去すること。
+- 元のテキストに書かれている情報だけを使い、推測で材料を追加しないこと。
+
+材料一覧:
+{ingredient_lines}
+
+必ず JSON 配列のみを返してください（説明文不要）:
+[{{"name": "材料名", "amount": "分量", "group": ""}}]
+    """.strip()
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an assistant that parses Japanese recipe ingredient text "
+                        "into structured data. Respond ONLY in JSON."
+                    ),
+                },
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=2000,
+        )
+    except Exception as e:
+        logger.warning("材料のAI解析に失敗、フォールバック処理を使用: %s", e)
+        return [{"name": item.strip(), "amount": "", "group": ""} for item in raw_ingredients]
+
+    content = response.choices[0].message.content
+
+    try:
+        obj = json.loads(content)
+    except json.JSONDecodeError:
+        logger.warning("AIの応答をJSONとして解釈できません、フォールバック処理を使用")
+        return [{"name": item.strip(), "amount": "", "group": ""} for item in raw_ingredients]
+
+    # レスポンスが {"ingredients": [...]} の形式の場合にも対応
+    if isinstance(obj, dict):
+        for key in ("ingredients", "items", "data"):
+            if key in obj and isinstance(obj[key], list):
+                obj = obj[key]
+                break
+        else:
+            # dictだがリストを含まない場合はフォールバック
+            logger.warning("AIの応答が期待した形式ではありません")
+            return [{"name": item.strip(), "amount": "", "group": ""} for item in raw_ingredients]
+
+    # 各要素を正規化
+    ingredients = []
+    for item in obj:
+        ingredients.append({
+            "name": str(item.get("name", "")),
+            "amount": str(item.get("amount", "")),
+            "group": str(item.get("group", "")),
+        })
+
+    return ingredients
 
 
 def _parse_servings(value):
