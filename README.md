@@ -184,7 +184,6 @@ CHAproject（家計簿アプリ）と同一ドメイン・同一Tunnelで `/cook
 
 #### デプロイ手順（初回）
 
-詳細は [.claude/INFRA.md](.claude/INFRA.md) を参照。
 
 ```bash
 # 1. アプリ配置
