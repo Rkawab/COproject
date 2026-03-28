@@ -334,16 +334,16 @@ def _parse_ingredients_with_ai(raw_ingredients):
             max_tokens=2000,
         )
     except Exception as e:
-        logger.warning("材料のAI解析に失敗、フォールバック処理を使用: %s", e)
-        return [{"name": item.strip(), "quantity": None, "unit": "", "amount_text": "", "group": ""} for item in raw_ingredients]
+        logger.warning("材料のAI解析に失敗、regexフォールバック処理を使用: %s", e)
+        return [_parse_ingredient_by_regex(item) for item in raw_ingredients]
 
     content = response.choices[0].message.content
 
     try:
         obj = json.loads(content)
     except json.JSONDecodeError:
-        logger.warning("AIの応答をJSONとして解釈できません、フォールバック処理を使用")
-        return [{"name": item.strip(), "quantity": None, "unit": "", "amount_text": "", "group": ""} for item in raw_ingredients]
+        logger.warning("AIの応答をJSONとして解釈できません、regexフォールバック処理を使用")
+        return [_parse_ingredient_by_regex(item) for item in raw_ingredients]
 
     # レスポンスが {"ingredients": [...]} の形式の場合にも対応
     if isinstance(obj, dict):
@@ -353,8 +353,8 @@ def _parse_ingredients_with_ai(raw_ingredients):
                 break
         else:
             # dictだがリストを含まない場合はフォールバック
-            logger.warning("AIの応答が期待した形式ではありません")
-            return [{"name": item.strip(), "quantity": None, "unit": "", "amount_text": "", "group": ""} for item in raw_ingredients]
+            logger.warning("AIの応答が期待した形式ではありません、regexフォールバック処理を使用")
+            return [_parse_ingredient_by_regex(item) for item in raw_ingredients]
 
     # 各要素を正規化
     ingredients = []
@@ -373,7 +373,115 @@ def _parse_ingredients_with_ai(raw_ingredients):
             "group": str(item.get("group", "")),
         })
 
+    # AI解析後の後処理: name に分量が残っている場合にregexで分離
+    ingredients = [_fix_ingredient_name(ing) for ing in ingredients]
+
     return ingredients
+
+
+def _parse_ingredient_by_regex(text):
+    """材料テキストをregexで名前・数量・単位に分割する。
+
+    AI解析のフォールバック用。日本語レシピでよくあるパターンに対応:
+      "鶏もも肉 300g" → name="鶏もも肉", quantity=300, unit="g"
+      "醤油 大さじ2" → name="醤油", quantity=2, unit="大さじ"
+      "塩 少々" → name="塩", amount_text="少々"
+      "水（煮る用）" → name="水（煮る用）"
+    """
+    text = text.strip()
+    if not text:
+        return {"name": "", "quantity": None, "unit": "", "amount_text": "", "group": ""}
+
+    # グループ記号を抽出して除去（☆、★、◎、(A) など）
+    group = ""
+    group_match = re.match(r'^([☆★◎〇●◯]|[（(]\s*[A-Za-zＡ-Ｚ]\s*[）)])\s*', text)
+    if group_match:
+        group = group_match.group(1).strip("（()） )( ")
+        text = text[group_match.end():]
+
+    # 非数量テキスト（適量、少々、ひとつまみ等）
+    non_numeric_amounts = r'適量|少々|ひとつまみ|ひとふり|お好みで|適宜|たっぷり|少量'
+
+    # パターン1: "材料名 数量単位" (例: "鶏もも肉 300g", "砂糖 140g")
+    m = re.match(
+        r'^(.+?)\s+(\d+(?:\.\d+)?(?:/\d+)?)\s*(g|kg|ml|cc|L|個|本|枚|切れ|片|束|袋|缶|丁|合|カップ|cm|mm)\s*$',
+        text,
+    )
+    if m:
+        qty_str = m.group(2)
+        if '/' in qty_str:
+            parts = qty_str.split('/')
+            qty = float(parts[0]) / float(parts[1])
+        else:
+            qty = float(qty_str)
+        return {"name": m.group(1).strip(), "quantity": qty, "unit": m.group(3), "amount_text": "", "group": group}
+
+    # パターン2: "材料名 計量単位+数量" (例: "醤油 大さじ2", "酒 小さじ1/2")
+    m = re.match(
+        r'^(.+?)\s+(大さじ|小さじ)\s*(\d+(?:\.\d+)?(?:/\d+)?)\s*$',
+        text,
+    )
+    if m:
+        qty_str = m.group(3)
+        if '/' in qty_str:
+            parts = qty_str.split('/')
+            qty = float(parts[0]) / float(parts[1])
+        else:
+            qty = float(qty_str)
+        return {"name": m.group(1).strip(), "quantity": qty, "unit": m.group(2), "amount_text": "", "group": group}
+
+    # パターン3: "材料名 非数量テキスト" (例: "塩 少々", "サラダ油 適量")
+    m = re.match(
+        rf'^(.+?)\s+({non_numeric_amounts})\s*$',
+        text,
+    )
+    if m:
+        return {"name": m.group(1).strip(), "quantity": None, "unit": "", "amount_text": m.group(2), "group": group}
+
+    # パターン4: "材料名 数量+単位" (その他の単位)
+    m = re.match(
+        r'^(.+?)\s+(\d+(?:\.\d+)?(?:/\d+)?)\s*(.+?)\s*$',
+        text,
+    )
+    if m and len(m.group(3)) <= 4:
+        qty_str = m.group(2)
+        if '/' in qty_str:
+            parts = qty_str.split('/')
+            qty = float(parts[0]) / float(parts[1])
+        else:
+            qty = float(qty_str)
+        return {"name": m.group(1).strip(), "quantity": qty, "unit": m.group(3), "amount_text": "", "group": group}
+
+    # どのパターンにも一致しない場合はそのまま
+    return {"name": text, "quantity": None, "unit": "", "amount_text": "", "group": group}
+
+
+def _fix_ingredient_name(ingredient):
+    """AI解析結果のnameに分量が残っている場合にregexで修正する。"""
+    name = ingredient.get("name", "")
+    # nameに数量+単位パターンが含まれているかチェック
+    # 例: "金時豆 250g", "鶏もも肉300g", "醤油 大さじ1"
+    has_amount_pattern = re.search(
+        r'\s*\d+(?:\.\d+)?(?:/\d+)?\s*(?:g|kg|ml|cc|L|個|本|枚|切れ|片|束|袋|缶|丁|合|カップ|cm|mm|大さじ|小さじ)\s*$',
+        name,
+    )
+    has_amount_text = re.search(
+        r'\s+(?:適量|少々|ひとつまみ|ひとふり|お好みで|適宜|たっぷり|少量)\s*$',
+        name,
+    )
+    has_measure_prefix = re.search(
+        r'\s+(?:大さじ|小さじ)\s*\d+(?:\.\d+)?(?:/\d+)?\s*$',
+        name,
+    )
+
+    if has_amount_pattern or has_amount_text or has_measure_prefix:
+        # nameに分量が含まれている → regexで再パース
+        parsed = _parse_ingredient_by_regex(name)
+        # グループは元のAI結果を優先
+        parsed["group"] = ingredient.get("group", "") or parsed["group"]
+        return parsed
+
+    return ingredient
 
 
 def _parse_servings(value):
