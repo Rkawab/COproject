@@ -62,13 +62,20 @@ def extract_recipe_info(image_file: BinaryIO) -> dict:
 - genre2: ジャンル2。必ず次のどれか一つ: 「主食」「主菜」「副菜」「汁物」
 - genre3: ジャンル3（genre2 が「主菜」の場合のみ）。次のどれか: 「肉系」「魚系」「」。主菜でなければ空文字。
 - servings: 何人分か（整数）
-- ingredients: 材料の配列。各要素は {"name": "材料名", "amount": "分量", "group": "グループ"}
+- ingredients: 材料の配列。各要素は以下の形式:
+  {"name": "材料名", "quantity": 数値またはnull, "unit": "単位", "amount_text": "テキスト分量", "group": "グループ"}
+  * quantity: 数値化できる分量の数値部分（例: 2, 200, 0.5）。数値化できない場合は null。
+  * unit: 単位（例: "大さじ", "g", "個", "本"）。数値化できない場合は空文字 ""。
+  * amount_text: 数値化できない分量（例: "適量", "少々", "ひとつまみ"）。数値がある場合は空文字 ""。
+  * quantity と amount_text は排他的: どちらか一方のみ値を入れる。
   * group について: レシピで (A) や (B) のようにまとめられた調味料グループがある場合、そのグループ名を入れる（例: "A", "B"）。グループに属さない材料は空文字 "" にする。
 - steps: 手順の配列（文字列の配列）。番号は不要、手順の内容だけを入れる。
 
 読み取りのルール:
 - 手書き文字が多少読みにくくても、文脈から推測して埋めてください。
-- 分量は「大さじ1」「小さじ1/2」「200g」「3個」「適量」などそのまま読み取ってください。
+- 分量は数値と単位に分けてください。例: 「大さじ1」→ quantity=1, unit="大さじ"、「200g」→ quantity=200, unit="g"
+- 分数は小数に変換してください。例: 「1/2」→ 0.5、「小さじ1/2」→ quantity=0.5, unit="小さじ"
+- 「適量」「少々」「ひとつまみ」など数値化できない分量は amount_text に入れ、quantity は null にしてください。
 - 略語表記（例: 大1 = 大さじ1）も可能な限り展開してください。
 - 分量は手順に書いてある場合もあります。手順からも分量を読み取って ingredients に反映してください。
 - 調味料グループ（A, B など）がある場合は、必ず ingredients の group フィールドに反映してください。
@@ -84,7 +91,8 @@ def extract_recipe_info(image_file: BinaryIO) -> dict:
   "genre3": "肉系",
   "servings": 2,
   "ingredients": [
-    {"name": "材料名", "amount": "分量", "group": ""}
+    {"name": "材料名", "quantity": 2, "unit": "大さじ", "amount_text": "", "group": ""},
+    {"name": "塩", "quantity": null, "unit": "", "amount_text": "少々", "group": ""}
   ],
   "steps": ["手順1", "手順2"]
 }
@@ -146,9 +154,18 @@ def extract_recipe_info(image_file: BinaryIO) -> dict:
     # ingredients の正規化
     ingredients = []
     for item in obj["ingredients"]:
+        qty = item.get("quantity")
+        # 数値変換（文字列で返ってきた場合の対応）
+        if qty is not None:
+            try:
+                qty = float(qty)
+            except (TypeError, ValueError):
+                qty = None
         ingredients.append({
             "name": str(item.get("name", "")),
-            "amount": str(item.get("amount", "")),
+            "quantity": qty,
+            "unit": str(item.get("unit", "")),
+            "amount_text": str(item.get("amount_text", "")),
             "group": str(item.get("group", "")),
         })
     obj["ingredients"] = ingredients

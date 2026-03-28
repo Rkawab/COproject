@@ -23,23 +23,67 @@ class RecipeForm(forms.ModelForm):
         }
 
 
+class IngredientForm(forms.ModelForm):
+    """材料フォーム。quantity+unit と amount_text の排他入力をバリデーション。"""
+
+    class Meta:
+        model = Ingredient
+        fields = ["name", "quantity", "unit", "amount_text", "group"]
+        widgets = {
+            "name": forms.TextInput(attrs={
+                "class": "form-control", "placeholder": "材料名",
+            }),
+            "quantity": forms.NumberInput(attrs={
+                "class": "form-control", "placeholder": "数量",
+                "step": "any", "min": "0",
+            }),
+            "unit": forms.TextInput(attrs={
+                "class": "form-control", "placeholder": "単位",
+            }),
+            "amount_text": forms.TextInput(attrs={
+                "class": "form-control", "placeholder": "適量 / 少々",
+            }),
+            "group": forms.TextInput(attrs={
+                "class": "form-control form-control-sm group-input", "placeholder": "A / タレ…",
+            }),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        qty = cleaned.get("quantity")
+        amount_text = cleaned.get("amount_text", "").strip()
+
+        # 排他チェック: 両方入っている場合はエラー
+        if qty is not None and amount_text:
+            raise forms.ValidationError("「数量+単位」と「テキスト分量」は同時に入力できません。どちらか一方を入力してください。")
+
+        return cleaned
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        # amount フィールド（旧）を新フィールドから自動生成（後方互換）
+        if instance.quantity is not None:
+            q = instance.quantity.normalize()
+            instance.amount = f"{q}{instance.unit}"
+            instance.amount_text = ""
+        elif instance.amount_text:
+            instance.amount = instance.amount_text
+            instance.quantity = None
+            instance.unit = ""
+        else:
+            instance.amount = ""
+        if commit:
+            instance.save()
+        return instance
+
+
 # 材料フォームセット（親: Recipe）
 IngredientFormSet = inlineformset_factory(
     Recipe,
     Ingredient,
-    fields=["name", "amount", "group"],
+    form=IngredientForm,
     extra=3,
     can_delete=True,
-    widgets={
-        "name": forms.TextInput(attrs={"class": "form-control", "placeholder": "材料名"}),
-        "amount": forms.TextInput(attrs={"class": "form-control", "placeholder": "例: 大さじ1 / 100g / 適量"}),
-        "group": forms.TextInput(attrs={"class": "form-control form-control-sm", "placeholder": "A / タレ…"}),
-    },
-    labels={
-        "name": "材料名",
-        "amount": "分量",
-        "group": "グループ",
-    },
 )
 
 # 手順フォームセット（親: Recipe）

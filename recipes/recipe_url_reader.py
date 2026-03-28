@@ -56,7 +56,7 @@ def fetch_recipe_from_url(url):
             "genre2": str,  # 主食/主菜/副菜/汁物 or ""
             "genre3": str,  # 肉系/魚系 or ""
             "servings": int or "",
-            "ingredients": [{"name": str, "amount": str, "group": str}, ...],
+            "ingredients": [{"name": str, "quantity": float|None, "unit": str, "amount_text": str, "group": str}, ...],
             "steps": [str, ...],
         }
     """
@@ -187,14 +187,21 @@ def _extract_nadia_recipe(soup):
 
     name = recipe.get("title", "")
 
-    # 材料
-    ingredients = []
-    for item in recipe.get("ingredients", []):
-        ingredients.append({
-            "name": item.get("name", ""),
-            "amount": item.get("amount", "") + item.get("memo", ""),
-            "group": item.get("kubun", "") or "",
-        })
+    # 材料（Nadiaは amount が文字列なので AI パースで分割する）
+    raw_ingredients = []
+    nadia_groups = {}  # index -> group名
+    for idx, item in enumerate(recipe.get("ingredients", [])):
+        amount_str = (item.get("amount", "") + " " + item.get("memo", "")).strip()
+        name = item.get("name", "")
+        raw_ingredients.append(f"{name} {amount_str}".strip())
+        kubun = item.get("kubun", "") or ""
+        if kubun:
+            nadia_groups[idx] = kubun
+    ingredients = _parse_ingredients_with_ai(raw_ingredients)
+    # Nadiaのグループ情報を復元
+    for idx, ing in enumerate(ingredients):
+        if idx in nadia_groups and not ing.get("group"):
+            ing["group"] = nadia_groups[idx]
 
     # 手順
     steps = []
@@ -230,13 +237,13 @@ def _extract_nadia_recipe(soup):
 
 
 def _parse_ingredients_with_ai(raw_ingredients):
-    """材料テキストのリストをOpenAI APIで名前・分量・グループに分割する。
+    """材料テキストのリストをOpenAI APIで名前・数量・単位・テキスト分量・グループに分割する。
 
     Args:
         raw_ingredients: ["鶏もも肉 300g", "醤油 大さじ1", ...] のような文字列リスト
 
     Returns:
-        [{"name": "鶏もも肉", "amount": "300g", "group": ""}, ...]
+        [{"name": "鶏もも肉", "quantity": 300, "unit": "g", "amount_text": "", "group": ""}, ...]
     """
     if not raw_ingredients:
         return []
@@ -245,11 +252,15 @@ def _parse_ingredients_with_ai(raw_ingredients):
 
     user_prompt = f"""
 以下はレシピサイトから取得した材料テキストの一覧です。
-各行を「材料名」「分量」「グループ」に分割して JSON 配列で返してください。
+各行を「材料名」「数量」「単位」「テキスト分量」「グループ」に分割して JSON 配列で返してください。
 
 ルール:
 - name: 材料名のみ。分量や単位は含めない。
-- amount: 分量（「大さじ1」「300g」「適量」「少々」など）。分量がない場合は空文字。
+- quantity: 数値化できる分量の数値部分（例: 2, 200, 0.5）。数値化できない場合は null。
+  * 分数は小数に変換すること（1/2 → 0.5）。
+- unit: 単位（例: "大さじ", "g", "個", "本"）。数値化できない場合は空文字 ""。
+- amount_text: 数値化できない分量テキスト（例: "適量", "少々", "ひとつまみ"）。数値がある場合は空文字 ""。
+  * quantity と amount_text は排他的: どちらか一方のみ値を入れること。
 - group: 調味料グループ（A, B, タレ等）がある場合はそのグループ名。なければ空文字。
   * 「(A)」「【A】」「☆」「★」「◎」などの記号がグループを示す場合がある。
   * 記号がグループの場合、name からその記号を除去すること。
@@ -259,7 +270,7 @@ def _parse_ingredients_with_ai(raw_ingredients):
 {ingredient_lines}
 
 必ず JSON 配列のみを返してください（説明文不要）:
-[{{"name": "材料名", "amount": "分量", "group": ""}}]
+[{{"name": "材料名", "quantity": 2, "unit": "大さじ", "amount_text": "", "group": ""}}]
     """.strip()
 
     try:
@@ -280,7 +291,7 @@ def _parse_ingredients_with_ai(raw_ingredients):
         )
     except Exception as e:
         logger.warning("材料のAI解析に失敗、フォールバック処理を使用: %s", e)
-        return [{"name": item.strip(), "amount": "", "group": ""} for item in raw_ingredients]
+        return [{"name": item.strip(), "quantity": None, "unit": "", "amount_text": "", "group": ""} for item in raw_ingredients]
 
     content = response.choices[0].message.content
 
@@ -288,7 +299,7 @@ def _parse_ingredients_with_ai(raw_ingredients):
         obj = json.loads(content)
     except json.JSONDecodeError:
         logger.warning("AIの応答をJSONとして解釈できません、フォールバック処理を使用")
-        return [{"name": item.strip(), "amount": "", "group": ""} for item in raw_ingredients]
+        return [{"name": item.strip(), "quantity": None, "unit": "", "amount_text": "", "group": ""} for item in raw_ingredients]
 
     # レスポンスが {"ingredients": [...]} の形式の場合にも対応
     if isinstance(obj, dict):
@@ -299,14 +310,22 @@ def _parse_ingredients_with_ai(raw_ingredients):
         else:
             # dictだがリストを含まない場合はフォールバック
             logger.warning("AIの応答が期待した形式ではありません")
-            return [{"name": item.strip(), "amount": "", "group": ""} for item in raw_ingredients]
+            return [{"name": item.strip(), "quantity": None, "unit": "", "amount_text": "", "group": ""} for item in raw_ingredients]
 
     # 各要素を正規化
     ingredients = []
     for item in obj:
+        qty = item.get("quantity")
+        if qty is not None:
+            try:
+                qty = float(qty)
+            except (TypeError, ValueError):
+                qty = None
         ingredients.append({
             "name": str(item.get("name", "")),
-            "amount": str(item.get("amount", "")),
+            "quantity": qty,
+            "unit": str(item.get("unit", "")),
+            "amount_text": str(item.get("amount_text", "")),
             "group": str(item.get("group", "")),
         })
 

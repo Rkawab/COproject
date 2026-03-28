@@ -5,6 +5,7 @@ from .models import Recipe, Ingredient, Step, NutritionCache
 class IngredientInline(admin.TabularInline):
     model = Ingredient
     extra = 1
+    fields = ("name", "quantity", "unit", "amount_text", "group")
 
 
 class StepInline(admin.TabularInline):

@@ -110,31 +110,41 @@
     <div class="card mb-3 shadow-sm">
         <div class="card-header fw-bold">材料</div>
         <div class="card-body">
-            <!-- グループ説明 -->
+            <!-- 入力説明 -->
             <div class="text-muted small mb-2">
-                調味料などをまとめる場合は「グループ」欄に <strong>A</strong>、<strong>タレ</strong> などを入力してください。手順で「(A) を加える」と記述できます。
+                分量は<strong>数量</strong>と<strong>単位</strong>に分けて入力してください（例: 数量=2, 単位=大さじ）。<br>
+                「適量」「少々」など数値化できない場合は<strong>テキスト</strong>欄に入力してください。<br>
+                調味料グループは「グループ」欄に <strong>A</strong>、<strong>タレ</strong> などを入力。
             </div>
-            <!-- 列ヘッダー -->
-            <div class="row g-2 mb-1 d-none d-sm-flex">
-                <div class="col-4"><span class="small text-muted">材料名</span></div>
-                <div class="col-3"><span class="small text-muted">分量</span></div>
-                <div class="col-3"><span class="small text-muted">グループ (A / タレ…)</span></div>
+            <!-- 列ヘッダー（PC） -->
+            <div class="row g-1 mb-1 d-none d-md-flex">
+                <div class="col-3"><span class="small text-muted">材料名</span></div>
+                <div class="col-2"><span class="small text-muted">数量</span></div>
+                <div class="col-2"><span class="small text-muted">単位</span></div>
+                <div class="col-2"><span class="small text-muted">テキスト</span></div>
+                <div class="col-2"><span class="small text-muted">グループ</span></div>
             </div>
             {{ ingredient_formset.management_form }}
             <div id="ingredient-formset">
                 {% for ing_form in ingredient_formset %}
-                <div class="ingredient-row row g-2 mb-2 align-items-center" data-group="{{ ing_form.instance.group }}">
+                <div class="ingredient-row row g-1 mb-2 align-items-center" data-group="{{ ing_form.instance.group }}">
                     {{ ing_form.id }}
-                    <div class="col-4">
+                    <div class="col-6 col-md-3">
                         {% render_field ing_form.name class="form-control" placeholder="材料名" %}
                     </div>
-                    <div class="col-3">
-                        {% render_field ing_form.amount class="form-control" placeholder="例: 大さじ1" %}
+                    <div class="col-3 col-md-2">
+                        {% render_field ing_form.quantity class="form-control" placeholder="数量" %}
                     </div>
-                    <div class="col-3">
+                    <div class="col-3 col-md-2">
+                        {% render_field ing_form.unit class="form-control" placeholder="単位" %}
+                    </div>
+                    <div class="col-4 col-md-2">
+                        {% render_field ing_form.amount_text class="form-control" placeholder="適量等" %}
+                    </div>
+                    <div class="col-4 col-md-2">
                         {% render_field ing_form.group class="form-control form-control-sm group-input" placeholder="A / タレ…" %}
                     </div>
-                    <div class="col-2 text-center">
+                    <div class="col-4 col-md-1 text-center">
                         {% if ing_form.instance.pk %}
                             <label class="small text-danger d-flex align-items-center gap-1">
                                 {{ ing_form.DELETE }} 削除
@@ -148,18 +158,24 @@
             </div>
             <!-- 追加行のテンプレート（hidden） -->
             <div id="ingredient-empty-row" class="d-none">
-                <div class="ingredient-row row g-2 mb-2 align-items-center" data-group="">
+                <div class="ingredient-row row g-1 mb-2 align-items-center" data-group="">
                     <input type="hidden" name="ingredients-__prefix__-id" value="">
-                    <div class="col-4">
+                    <div class="col-6 col-md-3">
                         <input type="text" name="ingredients-__prefix__-name" class="form-control" placeholder="材料名">
                     </div>
-                    <div class="col-3">
-                        <input type="text" name="ingredients-__prefix__-amount" class="form-control" placeholder="例: 大さじ1">
+                    <div class="col-3 col-md-2">
+                        <input type="number" name="ingredients-__prefix__-quantity" class="form-control" placeholder="数量" step="any" min="0">
                     </div>
-                    <div class="col-3">
+                    <div class="col-3 col-md-2">
+                        <input type="text" name="ingredients-__prefix__-unit" class="form-control" placeholder="単位">
+                    </div>
+                    <div class="col-4 col-md-2">
+                        <input type="text" name="ingredients-__prefix__-amount_text" class="form-control" placeholder="適量等">
+                    </div>
+                    <div class="col-4 col-md-2">
                         <input type="text" name="ingredients-__prefix__-group" class="form-control form-control-sm group-input" placeholder="A / タレ…">
                     </div>
-                    <div class="col-2 text-center">
+                    <div class="col-4 col-md-1 text-center">
                         <button type="button" class="btn btn-sm btn-outline-danger remove-row">✕</button>
                     </div>
                 </div>
@@ -494,7 +510,7 @@ document.getElementById('recipe-form').addEventListener('submit', function () {
         var empty   = document.getElementById('ingredient-empty-row');
         var total   = document.getElementById('id_ingredients-TOTAL_FORMS');
 
-        // 既存の空行を削除（pk がない行）
+        // 既存の空行���削除（pk がない行）
         formset.querySelectorAll('.ingredient-row').forEach(function (row) {
             var idInput = row.querySelector('input[name$="-id"]');
             if (idInput && !idInput.value) row.remove();
@@ -510,11 +526,27 @@ document.getElementById('recipe-form').addEventListener('submit', function () {
 
             var row = formset.lastElementChild;
             var nameInput = row.querySelector('input[name$="-name"]');
-            var amountInput = row.querySelector('input[name$="-amount"]');
+            var quantityInput = row.querySelector('input[name$="-quantity"]');
+            var unitInput = row.querySelector('input[name$="-unit"]');
+            var amountTextInput = row.querySelector('input[name$="-amount_text"]');
             var groupInput = row.querySelector('input[name$="-group"]');
+
             if (nameInput) nameInput.value = ing.name || '';
-            if (amountInput) amountInput.value = ing.amount || '';
             if (groupInput) groupInput.value = ing.group || '';
+
+            // AI応答: quantity+unit がある場合は新フィールド、なければ amount_text
+            if (ing.quantity != null && ing.quantity !== '') {
+                if (quantityInput) quantityInput.value = ing.quantity;
+                if (unitInput) unitInput.value = ing.unit || '';
+                if (amountTextInput) amountTextInput.value = '';
+            } else if (ing.amount_text) {
+                if (amountTextInput) amountTextInput.value = ing.amount_text;
+                if (quantityInput) quantityInput.value = '';
+                if (unitInput) unitInput.value = '';
+            } else if (ing.amount) {
+                // 旧形式（amount のみ）の場合、amount_text にフォールバック
+                if (amountTextInput) amountTextInput.value = ing.amount;
+            }
         });
 
         total.value = existingCount + ingredients.length;

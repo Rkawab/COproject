@@ -32,7 +32,19 @@
         <!-- 材料 -->
         <div class="col-12 col-md-5">
             <div class="card shadow-sm h-100">
-                <div class="card-header fw-bold">材料（{{ recipe.servings }}人前）</div>
+                <div class="card-header fw-bold d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span>材料（<span id="servings-display">{{ recipe.servings }}</span>人前）</span>
+                    <!-- 人前スケーリング -->
+                    <div class="d-flex align-items-center gap-1">
+                        <label class="small text-muted mb-0" for="servings-input">何人前？</label>
+                        <input type="number" id="servings-input" class="form-control form-control-sm"
+                               style="width: 60px;" min="1" max="99" step="1"
+                               value="{{ recipe.servings }}" data-original="{{ recipe.servings }}">
+                        <button type="button" id="servings-reset" class="btn btn-outline-secondary btn-sm py-0 px-1" title="元に戻す">
+                            <small>リセット</small>
+                        </button>
+                    </div>
+                </div>
                 <div class="card-body">
                     {% if grouped_ingredients %}
                     <ul class="list-group list-group-flush">
@@ -45,9 +57,13 @@
                         </li>
                         {% endif %}
                         {% for ing in items %}
-                        <li class="list-group-item px-0 d-flex justify-content-between">
+                        <li class="list-group-item px-0 d-flex justify-content-between ingredient-item"
+                            data-quantity="{{ ing.quantity|default_if_none:'' }}"
+                            data-unit="{{ ing.unit }}"
+                            data-amount-text="{{ ing.amount_text }}"
+                            data-scalable="{{ ing.is_scalable|yesno:'1,0' }}">
                             <span>{{ ing.name }}</span>
-                            <span class="text-muted">{{ ing.amount }}</span>
+                            <span class="text-muted ingredient-amount">{{ ing.display_amount }}</span>
                         </li>
                         {% endfor %}
                         {% endfor %}
@@ -136,6 +152,50 @@ function copyRecipeUrl(btn) {
         setTimeout(function () { btn.innerHTML = orig; }, 1500);
     });
 }
+
+// ---- 人前スケーリング ----
+(function () {
+    var originalServings = {{ recipe.servings }};
+    var servingsInput = document.getElementById('servings-input');
+    var servingsDisplay = document.getElementById('servings-display');
+    var resetBtn = document.getElementById('servings-reset');
+
+    function formatQuantity(num) {
+        // 整数ならそのまま、小数は小数点以下2桁まで（末尾0除去）
+        if (num === Math.floor(num)) return String(num);
+        return parseFloat(num.toFixed(2)).toString();
+    }
+
+    function updateAmounts() {
+        var newServings = parseFloat(servingsInput.value) || originalServings;
+        var ratio = newServings / originalServings;
+
+        servingsDisplay.textContent = newServings;
+
+        document.querySelectorAll('.ingredient-item').forEach(function (item) {
+            var amountEl = item.querySelector('.ingredient-amount');
+            var scalable = item.dataset.scalable === '1';
+            var qty = item.dataset.quantity;
+            var unit = item.dataset.unit;
+            var amountText = item.dataset.amountText;
+
+            if (scalable && qty) {
+                var scaled = parseFloat(qty) * ratio;
+                amountEl.textContent = formatQuantity(scaled) + unit;
+            } else {
+                amountEl.textContent = amountText || '';
+            }
+        });
+    }
+
+    servingsInput.addEventListener('input', updateAmounts);
+    servingsInput.addEventListener('change', updateAmounts);
+
+    resetBtn.addEventListener('click', function () {
+        servingsInput.value = originalServings;
+        updateAmounts();
+    });
+})();
 </script>
 {% if not nutrition %}
 <script>

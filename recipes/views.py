@@ -169,7 +169,7 @@ def get_nutrition(request, pk):
 
     # 材料テキストを組み立てる
     ingredients_text = "\n".join(
-        [f"- {i.name} {i.amount}" for i in recipe.ingredients.all()]
+        [f"- {i.name} {i.display_amount}" for i in recipe.ingredients.all()]
     ) or "（材料未登録）"
 
     prompt = f"""以下の料理について、1人分の推定栄養価を教えてください。
