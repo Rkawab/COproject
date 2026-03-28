@@ -19,6 +19,50 @@ logger = logging.getLogger(__name__)
 
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
+
+def _clean_recipe_title(title: str) -> str:
+    """レシピタイトルから装飾的な副題・キャッチコピーを除去する。
+
+    例:
+        "めっちゃジューシー♪鶏の唐揚げ" → "鶏の唐揚げ"
+        "簡単過ぎる♡♥鶏胸肉の照り焼きチキン" → "鶏胸肉の照り焼きチキン"
+        "【保存版】基本の肉じゃが" → "基本の肉じゃが"
+        "肉じゃが" → "肉じゃが"
+    """
+    if not title:
+        return title
+
+    # 先頭の【...】や［...］を除去（「【保存版】」「【簡単】」など）
+    title = re.sub(r'^[【\[［][^】\]］]*[】\]］]\s*', '', title)
+
+    # 装飾記号（♪♡♥☆★◎●〇♫❤💕🎵 等）で区切られた先頭の副題を繰り返し除去
+    # パターン: 「副題 + 装飾記号 + 本題」
+    decorative_chars = r'[♪♫♬♩♭♯♡♥❤💕💖💗💛💚💙🎵✨🌟⭐★☆◆◇■□▲△▼▽※＊✿❀🌸💮✾]'
+    while True:
+        match = re.match(
+            rf'^(.+?)\s*{decorative_chars}+\s*(.+)$',
+            title,
+        )
+        if match and len(match.group(2)) >= 2:
+            title = match.group(2)
+        else:
+            break
+
+    # 末尾の装飾記号を除去
+    title = re.sub(rf'\s*{decorative_chars}+\s*$', '', title)
+    # 先頭の装飾記号を除去
+    title = re.sub(rf'^\s*{decorative_chars}+\s*', '', title)
+
+    # 先頭の「!」「！」+副題パターンを繰り返し除去（「簡単！時短！豚キムチ」→「豚キムチ」）
+    while True:
+        match = re.match(r'^(.+?)[!！]+\s*(.+)$', title)
+        if match and len(match.group(2)) >= 2:
+            title = match.group(2)
+        else:
+            break
+
+    return title.strip()
+
 # ジャンル推測用のキーワードマッピング
 GENRE1_KEYWORDS = {
     "和食": ["和食", "和風", "醤油", "味噌", "出汁", "だし", "煮物", "焼き魚", "japanese"],
@@ -125,7 +169,7 @@ def _find_recipe_in_jsonld(data):
 
 def _parse_jsonld_recipe(data):
     """JSON-LD Recipeスキーマを共通フォーマットに変換する。"""
-    name = data.get("name", "")
+    name = _clean_recipe_title(data.get("name", ""))
 
     # 材料（AIで分割）
     raw_ingredients = [str(item) for item in data.get("recipeIngredient", [])]
@@ -185,7 +229,7 @@ def _extract_nadia_recipe(soup):
     except (json.JSONDecodeError, KeyError, TypeError):
         return None
 
-    name = recipe.get("title", "")
+    name = _clean_recipe_title(recipe.get("title", ""))
 
     # 材料（Nadiaは amount が文字列なので AI パースで分割する）
     raw_ingredients = []
