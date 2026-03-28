@@ -67,17 +67,12 @@ class IngredientForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        # amount フィールド（旧）を新フィールドから自動生成（後方互換）
+        # 排他フィールドの整合性を保つ
         if instance.quantity is not None:
-            q = Ingredient._format_quantity(instance.quantity)
-            instance.amount = f"{q}{instance.unit}"
             instance.amount_text = ""
         elif instance.amount_text:
-            instance.amount = instance.amount_text
             instance.quantity = None
             instance.unit = ""
-        else:
-            instance.amount = ""
         if commit:
             instance.save()
         return instance

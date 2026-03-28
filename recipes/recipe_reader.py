@@ -41,9 +41,9 @@ def extract_recipe_info(image_file: BinaryIO) -> dict:
         "genre3": "肉系",
         "servings": 2,
         "ingredients": [
-            {"name": "じゃがいも", "amount": "3個", "group": ""},
-            {"name": "醤油", "amount": "大さじ2", "group": "A"},
-            {"name": "みりん", "amount": "大さじ1", "group": "A"},
+            {"name": "じゃがいも", "quantity": 3, "unit": "個", "amount_text": "", "group": ""},
+            {"name": "醤油", "quantity": 2, "unit": "大さじ", "amount_text": "", "group": "A"},
+            {"name": "塩", "quantity": None, "unit": "", "amount_text": "少々", "group": ""},
         ],
         "steps": [
             "じゃがいもの皮をむいて一口大に切る。",

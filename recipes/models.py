@@ -42,9 +42,6 @@ class Recipe(models.Model):
 class Ingredient(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name="ingredients")
     name = models.CharField(max_length=100, verbose_name="材料名")
-    # 旧フィールド（移行完了後に削除予定。アプリ側では使用しない）
-    amount = models.CharField(max_length=50, verbose_name="分量（旧）", blank=True)
-    # 新フィールド: 数値化できる分量
     quantity = models.DecimalField(
         max_digits=7, decimal_places=2, null=True, blank=True, verbose_name="数量"
     )
@@ -73,8 +70,7 @@ class Ingredient(models.Model):
             return f"{self._format_quantity(self.quantity)}{self.unit}"
         if self.amount_text:
             return self.amount_text
-        # フォールバック（旧データ）
-        return self.amount
+        return ""
 
     @property
     def is_scalable(self):
