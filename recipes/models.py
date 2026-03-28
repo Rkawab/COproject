@@ -56,13 +56,21 @@ class Ingredient(models.Model):
     class Meta:
         db_table = "ingredient"
 
+    @staticmethod
+    def _format_quantity(q):
+        """Decimal を見やすい文字列にする（指数表記を回避）。"""
+        # normalize() は 50.00 → 5E+1 になるので、指数が正の場合は整数化する
+        normalized = q.normalize()
+        if normalized == normalized.to_integral_value():
+            return str(int(normalized))
+        return str(normalized)
+
     @property
     def display_amount(self):
         """表示用の分量文字列を返す。"""
         if self.quantity is not None:
             # 整数なら小数点以下を省略（2.00 → "2"、1.50 → "1.5"）
-            q = self.quantity.normalize()
-            return f"{q}{self.unit}"
+            return f"{self._format_quantity(self.quantity)}{self.unit}"
         if self.amount_text:
             return self.amount_text
         # フォールバック（旧データ）

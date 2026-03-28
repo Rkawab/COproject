@@ -48,6 +48,12 @@ class IngredientForm(forms.ModelForm):
             }),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 入力欄の初期値から不要な小数桁を除去（200.00 → 200、1.50 → 1.5）
+        if self.instance and self.instance.quantity is not None:
+            self.initial["quantity"] = Ingredient._format_quantity(self.instance.quantity)
+
     def clean(self):
         cleaned = super().clean()
         qty = cleaned.get("quantity")
@@ -63,7 +69,7 @@ class IngredientForm(forms.ModelForm):
         instance = super().save(commit=False)
         # amount フィールド（旧）を新フィールドから自動生成（後方互換）
         if instance.quantity is not None:
-            q = instance.quantity.normalize()
+            q = Ingredient._format_quantity(instance.quantity)
             instance.amount = f"{q}{instance.unit}"
             instance.amount_text = ""
         elif instance.amount_text:
