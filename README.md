@@ -28,6 +28,7 @@
 - **レシピサイトのURLから料理名・材料・手順を自動入力**
   - JSON-LD（Schema.org Recipe）を優先的に解析
   - Nadia（oceans-nadia.com）固有パーサーにも対応
+  - 材料テキストの名前・分量分割はOpenAI APIで実施、失敗時は正規表現フォールバック
   - ジャンル・人数の自動推測
 
 ### 🥗 栄養価推定
@@ -71,7 +72,7 @@ COproject/
 │   ├── views.py             # 一覧・登録・詳細・編集・削除・栄養価取得・画像/URL読み取り
 │   ├── forms.py             # RecipeForm・IngredientFormSet・StepFormSet
 │   ├── recipe_reader.py     # 手書きレシピ画像のAI読み取り処理
-│   ├── recipe_url_reader.py # レシピURL解析（JSON-LD / Nadia対応）
+│   ├── recipe_url_reader.py # レシピURL解析（JSON-LD / Nadia対応、AI材料パース＋regexフォールバック）
 │   └── ...
 │
 ├── templates/               # HTML テンプレート
