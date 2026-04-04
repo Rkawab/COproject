@@ -142,8 +142,37 @@ function copyRecipeUrl(btn) {
     var servingsInput = document.getElementById('servings-input');
     var resetBtn = document.getElementById('servings-reset');
 
-    function formatQuantity(num) {
-        // 整数ならそのまま、小数は小数点以下2桁まで（末尾0除去）
+    // Unicode分数パターン（料理で使う一般的な分数）
+    var UNICODE_FRACS = [
+        {val: 0.25, ch: '\u00BC'},  // ¼
+        {val: 1/3,  ch: '\u2153'},  // ⅓
+        {val: 0.5,  ch: '\u00BD'},  // ½
+        {val: 2/3,  ch: '\u2154'},  // ⅔
+        {val: 0.75, ch: '\u00BE'},  // ¾
+    ];
+    // 分数表示する単位
+    var FRAC_UNITS = ['本','個','枚','株','束','片','丁','玉','缶','袋','パック','切れ','切','大さじ','小さじ','カップ','合','房'];
+    // 整数丸めする単位
+    var ROUND_UNITS = ['g','kg','ml','mL','cc','L'];
+
+    function formatQuantity(num, unit) {
+        if (FRAC_UNITS.indexOf(unit) >= 0) {
+            var whole = Math.floor(num);
+            var frac = num - whole;
+            if (frac < 0.05) return String(whole);
+            if (frac > 0.95) return String(whole + 1);
+            for (var i = 0; i < UNICODE_FRACS.length; i++) {
+                if (Math.abs(frac - UNICODE_FRACS[i].val) < 0.05) {
+                    return (whole > 0 ? whole : '') + UNICODE_FRACS[i].ch;
+                }
+            }
+            // パターン不一致: 小数1桁に丸めて「約」付き
+            return '約' + parseFloat(num.toFixed(1));
+        }
+        if (ROUND_UNITS.indexOf(unit) >= 0) {
+            return String(Math.round(num));
+        }
+        // その他: 従来通り小数2桁
         if (num === Math.floor(num)) return String(num);
         return parseFloat(num.toFixed(2)).toString();
     }
@@ -161,7 +190,7 @@ function copyRecipeUrl(btn) {
 
             if (scalable && qty) {
                 var scaled = parseFloat(qty) * ratio;
-                amountEl.textContent = formatQuantity(scaled) + unit;
+                amountEl.textContent = formatQuantity(scaled, unit) + unit;
             } else {
                 amountEl.textContent = amountText || '';
             }

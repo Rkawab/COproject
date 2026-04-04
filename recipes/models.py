@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import models
 
 GENRE1_CHOICES = [
@@ -53,21 +55,56 @@ class Ingredient(models.Model):
     class Meta:
         db_table = "ingredient"
 
+    # Unicode分数パターン（料理で使う一般的な分数）
+    _UNICODE_FRACS = [
+        (Decimal("0.25"), "\u00BC"),  # ¼
+        (Decimal("0.33"), "\u2153"),  # ⅓
+        (Decimal("0.34"), "\u2153"),  # ⅓（丸め誤差対応）
+        (Decimal("0.50"), "\u00BD"),  # ½
+        (Decimal("0.66"), "\u2154"),  # ⅔
+        (Decimal("0.67"), "\u2154"),  # ⅔（丸め誤差対応）
+        (Decimal("0.75"), "\u00BE"),  # ¾
+    ]
+    # 分数表示する単位
+    _FRAC_UNITS = {"本", "個", "枚", "株", "束", "片", "丁", "玉", "缶", "袋",
+                   "パック", "切れ", "切", "大さじ", "小さじ", "カップ", "合", "房"}
+    # 整数丸めする単位
+    _ROUND_UNITS = {"g", "kg", "ml", "mL", "cc", "L"}
+
     @staticmethod
-    def _format_quantity(q):
+    def _format_quantity_plain(q):
         """Decimal を見やすい文字列にする（指数表記を回避）。"""
-        # normalize() は 50.00 → 5E+1 になるので、指数が正の場合は整数化する
         normalized = q.normalize()
         if normalized == normalized.to_integral_value():
             return str(int(normalized))
         return str(normalized)
 
+    def _format_quantity_smart(self, q):
+        """単位に応じてUnicode分数や整数丸めで表示する。"""
+        if self.unit in self._FRAC_UNITS:
+            whole = int(q)
+            frac = q - whole
+            # ほぼ整数
+            if frac < Decimal("0.05"):
+                return str(whole)
+            if frac > Decimal("0.95"):
+                return str(whole + 1)
+            # Unicode分数パターンに一致するか
+            for threshold, char in self._UNICODE_FRACS:
+                if abs(frac - threshold) < Decimal("0.05"):
+                    return (str(whole) if whole > 0 else "") + char
+            # 不一致: 小数1桁に丸めて「約」付き
+            return f"約{float(q):.1f}"
+        if self.unit in self._ROUND_UNITS:
+            return str(round(q))
+        # その他: 従来表示
+        return self._format_quantity_plain(q)
+
     @property
     def display_amount(self):
         """表示用の分量文字列を返す。"""
         if self.quantity is not None:
-            # 整数なら小数点以下を省略（2.00 → "2"、1.50 → "1.5"）
-            return f"{self._format_quantity(self.quantity)}{self.unit}"
+            return f"{self._format_quantity_smart(self.quantity)}{self.unit}"
         if self.amount_text:
             return self.amount_text
         return ""
