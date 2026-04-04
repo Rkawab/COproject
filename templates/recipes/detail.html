@@ -97,17 +97,12 @@
         <!-- 栄養価 -->
         <div class="col-12">
             <div class="card shadow-sm">
-                <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+                <div class="card-header fw-bold">
                     <span>栄養価（1人分 推定）</span>
-                    {% if not nutrition %}
-                    <button id="btn-nutrition" class="btn btn-sm btn-outline-primary">
-                        AIで栄養価を取得
-                    </button>
-                    {% endif %}
                 </div>
                 <div class="card-body">
                     {% if nutrition %}
-                    <div class="row text-center g-2" id="nutrition-display">
+                    <div class="row text-center g-2">
                         <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.calories|floatformat:0 }}</div><div class="label">kcal</div></div></div>
                         <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.protein|floatformat:1 }}</div><div class="label">たんぱく質(g)</div></div></div>
                         <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.fat|floatformat:1 }}</div><div class="label">脂質(g)</div></div></div>
@@ -116,20 +111,7 @@
                     </div>
                     <p class="text-muted small mt-2 mb-0">※ AI による推定値です。実際の値と異なる場合があります。</p>
                     {% else %}
-                    <div id="nutrition-placeholder" class="text-muted">
-                        「AIで栄養価を取得」ボタンを押すと OpenAI API で推定します。
-                    </div>
-                    <div id="nutrition-display" class="d-none">
-                        <div class="row text-center g-2">
-                            <div class="col"><div class="nutrition-item"><div class="value" id="n-cal">-</div><div class="label">kcal</div></div></div>
-                            <div class="col"><div class="nutrition-item"><div class="value" id="n-pro">-</div><div class="label">たんぱく質(g)</div></div></div>
-                            <div class="col"><div class="nutrition-item"><div class="value" id="n-fat">-</div><div class="label">脂質(g)</div></div></div>
-                            <div class="col"><div class="nutrition-item"><div class="value" id="n-carb">-</div><div class="label">炭水化物(g)</div></div></div>
-                            <div class="col"><div class="nutrition-item"><div class="value" id="n-salt">-</div><div class="label">塩分(g)</div></div></div>
-                        </div>
-                        <p class="text-muted small mt-2 mb-0">※ AI による推定値です。実際の値と異なる場合があります。</p>
-                    </div>
-                    <div id="nutrition-error" class="text-danger d-none"></div>
+                    <p class="text-muted">栄養価データがありません。編集して保存すると自動取得されます。</p>
                     {% endif %}
                 </div>
             </div>
@@ -204,43 +186,4 @@ function copyRecipeUrl(btn) {
     });
 })();
 </script>
-{% if not nutrition %}
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const btn = document.getElementById('btn-nutrition');
-    if (!btn) return;
-
-    btn.addEventListener('click', function () {
-        btn.disabled = true;
-        btn.textContent = '取得中…';
-
-        fetch('{% url "recipes:nutrition" recipe.pk %}')
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    document.getElementById('nutrition-error').textContent = data.error;
-                    document.getElementById('nutrition-error').classList.remove('d-none');
-                    btn.disabled = false;
-                    btn.textContent = 'AIで栄養価を取得';
-                    return;
-                }
-                document.getElementById('n-cal').textContent  = Math.round(data.calories);
-                document.getElementById('n-pro').textContent  = parseFloat(data.protein).toFixed(1);
-                document.getElementById('n-fat').textContent  = parseFloat(data.fat).toFixed(1);
-                document.getElementById('n-carb').textContent = parseFloat(data.carbs).toFixed(1);
-                document.getElementById('n-salt').textContent = parseFloat(data.salt).toFixed(1);
-                document.getElementById('nutrition-placeholder').classList.add('d-none');
-                document.getElementById('nutrition-display').classList.remove('d-none');
-                btn.textContent = '取得済み';
-            })
-            .catch(() => {
-                document.getElementById('nutrition-error').textContent = '通信エラーが発生しました。';
-                document.getElementById('nutrition-error').classList.remove('d-none');
-                btn.disabled = false;
-                btn.textContent = 'AIで栄養価を取得';
-            });
-    });
-});
-</script>
-{% endif %}
 {% endblock %}

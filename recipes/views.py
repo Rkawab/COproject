@@ -15,6 +15,58 @@ from .recipe_url_reader import RecipeURLError, fetch_recipe_from_url
 logger = logging.getLogger(__name__)
 
 
+def _fetch_and_cache_nutrition(recipe, old_name=None):
+    """OpenAI API で栄養価を推定しキャッシュに保存する。エラーはログ記録のみ。"""
+    # 名前変更時は古いキャッシュを削除
+    if old_name and old_name != recipe.name:
+        NutritionCache.objects.filter(recipe_name=old_name).delete()
+    # 現在の名前のキャッシュを削除して再取得
+    NutritionCache.objects.filter(recipe_name=recipe.name).delete()
+
+    ingredients_text = "\n".join(
+        [f"- {i.name} {i.display_amount}" for i in recipe.ingredients.all()]
+    ) or "（材料未登録）"
+
+    prompt = f"""以下の料理について、1人分の推定栄養価を教えてください。
+
+料理名: {recipe.name}
+人数: {recipe.servings}人前
+材料:
+{ingredients_text}
+
+以下のJSON形式のみで返答してください（説明文・コードブロック不要）:
+{{"calories": 数値, "protein": 数値, "fat": 数値, "carbs": 数値, "salt": 数値}}
+
+単位: calories=kcal, protein/fat/carbs/salt=g（すべて1人分）"""
+
+    raw = ""
+    try:
+        import openai
+        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=150,
+        )
+        raw = response.choices[0].message.content.strip()
+        raw = raw.replace("```json", "").replace("```", "").strip()
+        data = json.loads(raw)
+
+        NutritionCache.objects.create(
+            recipe_name=recipe.name,
+            calories=data.get("calories"),
+            protein=data.get("protein"),
+            fat=data.get("fat"),
+            carbs=data.get("carbs"),
+            salt=data.get("salt"),
+            raw_response=raw,
+        )
+    except json.JSONDecodeError:
+        logger.error("栄養価JSONパース失敗: %s", raw)
+    except Exception as e:
+        logger.error("栄養価取得エラー: %s", e)
+
+
 @login_required
 def recipe_list(request):
     recipes = Recipe.objects.prefetch_related("ingredients")
@@ -59,6 +111,9 @@ def recipe_create(request):
                 step.save()
             for step in step_formset.deleted_objects:
                 step.delete()
+
+            # 栄養価をAIで自動取得
+            _fetch_and_cache_nutrition(recipe)
 
             messages.success(request, f"「{recipe.name}」を登録しました。")
             return redirect("recipes:detail", pk=recipe.pk)
@@ -107,6 +162,7 @@ def recipe_edit(request, pk):
     recipe = get_object_or_404(Recipe, pk=pk)
 
     if request.method == "POST":
+        old_name = recipe.name  # 名前変更検出のため保存前に記録
         form = RecipeForm(request.POST, instance=recipe)
         ingredient_formset = IngredientFormSet(request.POST, instance=recipe, prefix="ingredients")
         step_formset = StepFormSet(request.POST, instance=recipe, prefix="steps")
@@ -122,6 +178,9 @@ def recipe_edit(request, pk):
                 if step.order != i:
                     step.order = i
                     step.save()
+
+            # 栄養価をAIで自動取得（内容変更があるためキャッシュを更新）
+            _fetch_and_cache_nutrition(recipe, old_name=old_name)
 
             messages.success(request, f"「{recipe.name}」を更新しました。")
             return redirect("recipes:detail", pk=recipe.pk)
