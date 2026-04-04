@@ -3,11 +3,32 @@
     --color-main: #fd510d;
 }
 
+/* ---- iPad 11インチ横向き幅・フォント調整（PC表示用） ---- */
+html {
+    font-size: 17px;
+}
+
+/* コンテナ最大幅を iPad 11インチ（ランドスケープ 1194px）に固定 */
+.container,
+.container-fluid {
+    max-width: 1194px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+/* ナビバーのフォントサイズ */
+.navbar-brand {
+    font-size: 1.3rem;
+}
+.nav-link {
+    font-size: 1.05rem;
+}
+
 /* ---- 見出し ---- */
 h2 {
     margin-top: 0.5rem;
     font-weight: 600;
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     border-left: 5px solid var(--color-main);
     padding-left: 0.75rem;
     color: #333;
@@ -51,12 +72,12 @@ h2 {
     padding: 0.5rem 0.25rem;
 }
 .nutrition-item .value {
-    font-size: 1.4rem;
+    font-size: 1.6rem;
     font-weight: 700;
     color: var(--color-main);
 }
 .nutrition-item .label {
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     color: #888;
 }
 
@@ -83,4 +104,38 @@ h2 {
 .card-header {
     background-color: #fff3ee;
     border-bottom: 1px solid #fddcc8;
+    font-size: 1.1rem;
+}
+
+/* ---- 詳細ページ：材料・手順のテキストを大きく ---- */
+.list-group-item {
+    font-size: 1.1rem;
+}
+ol li,
+ul.list-group-flush li {
+    font-size: 1.1rem;
+    line-height: 1.8;
+}
+
+/* Bootstrap の small クラス・タグを打ち消し（本文コンテンツ内） */
+.card-body .small,
+.card-body small {
+    font-size: 0.95rem !important;
+}
+
+/* 登録日・注釈テキスト */
+p.small,
+p.text-muted.small {
+    font-size: 0.95rem !important;
+}
+
+/* バッジ */
+.badge {
+    font-size: 0.9rem;
+}
+
+/* ボタン（btn-sm）も少し大きく */
+.btn-sm {
+    font-size: 0.95rem !important;
+    padding: 0.3rem 0.7rem !important;
 }
