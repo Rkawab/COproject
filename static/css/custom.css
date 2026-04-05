@@ -139,3 +139,113 @@ p.text-muted.small {
     font-size: 0.95rem !important;
     padding: 0.3rem 0.7rem !important;
 }
+
+/* ---- 文字サイズ切り替え（詳細ページ） ---- */
+.font-size-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: #fff3ee;
+    border: 1px solid #fddcc8;
+    border-radius: 6px;
+    padding: 0.15rem 0.4rem;
+}
+.font-size-controls .fs-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 1rem;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #333;
+    padding: 0;
+}
+.font-size-controls .fs-btn:hover {
+    background: #fd510d;
+    color: #fff;
+    border-color: #fd510d;
+}
+.font-size-controls .fs-btn.active {
+    background: #fd510d;
+    color: #fff;
+    border-color: #fd510d;
+}
+.font-size-controls .fs-label {
+    font-size: 0.75rem;
+    color: #888;
+    margin: 0 0.15rem;
+}
+
+/* フォントサイズ段階 */
+.detail-content.fs-small .list-group-item,
+.detail-content.fs-small ol li,
+.detail-content.fs-small ul.list-group-flush li {
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+.detail-content.fs-medium .list-group-item,
+.detail-content.fs-medium ol li,
+.detail-content.fs-medium ul.list-group-flush li {
+    font-size: 1.1rem;
+    line-height: 1.8;
+}
+.detail-content.fs-large .list-group-item,
+.detail-content.fs-large ol li,
+.detail-content.fs-large ul.list-group-flush li {
+    font-size: 1.35rem;
+    line-height: 1.9;
+}
+
+/* ---- スマホ向けレスポンシブ ---- */
+@media (max-width: 575.98px) {
+    html {
+        font-size: 15px;
+    }
+    h2 {
+        font-size: 1.3rem;
+    }
+    /* ヘッダー部分を縦並びに */
+    .detail-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+    .detail-header .detail-actions {
+        margin-top: 0.5rem;
+    }
+    /* 材料ヘッダーの人前コントロールを折り返し */
+    .card-header {
+        font-size: 1rem;
+    }
+    /* 栄養価を2列+1列に */
+    .nutrition-item .value {
+        font-size: 1.3rem;
+    }
+    .nutrition-item .label {
+        font-size: 0.7rem;
+    }
+    /* フォントサイズ段階もスマホ向け調整 */
+    .detail-content.fs-small .list-group-item,
+    .detail-content.fs-small ol li,
+    .detail-content.fs-small ul.list-group-flush li {
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+    .detail-content.fs-medium .list-group-item,
+    .detail-content.fs-medium ol li,
+    .detail-content.fs-medium ul.list-group-flush li {
+        font-size: 1rem;
+        line-height: 1.7;
+    }
+    .detail-content.fs-large .list-group-item,
+    .detail-content.fs-large ol li,
+    .detail-content.fs-large ul.list-group-flush li {
+        font-size: 1.15rem;
+        line-height: 1.8;
+    }
+}
