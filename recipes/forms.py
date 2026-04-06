@@ -52,7 +52,7 @@ class IngredientForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # 入力欄の初期値から不要な小数桁を除去（200.00 → 200、1.50 → 1.5）
         if self.instance and self.instance.quantity is not None:
-            self.initial["quantity"] = Ingredient._format_quantity(self.instance.quantity)
+            self.initial["quantity"] = Ingredient._format_quantity_plain(self.instance.quantity)
 
     def clean(self):
         cleaned = super().clean()
