@@ -37,8 +37,11 @@ class PageViewMiddleware:
         if not ip:
             ip = request.META.get("REMOTE_ADDR")
 
+        user = request.user if hasattr(request, "user") and request.user.is_authenticated else None
+
         PageView.objects.create(
             path=path,
+            user=user,
             ip_address=ip or None,
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
             referrer=request.META.get("HTTP_REFERER", ""),

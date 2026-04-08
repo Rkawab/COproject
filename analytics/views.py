@@ -72,11 +72,10 @@ def dashboard(request):
         chart_labels.append(f"{d.month}/{d.day}")
         chart_values.append(date_counts.get(d, 0))
 
-    # IPアドレス別アクセス数ランキング（直近30日、上位10件）
-    ip_data = (
+    # ユーザー別アクセス数ランキング（直近30日、上位10件）
+    user_data = (
         PageView.objects.filter(timestamp__date__gte=thirty_days_ago)
-        .exclude(ip_address__isnull=True)
-        .values("ip_address")
+        .values("user__username", "ip_address")
         .annotate(count=Count("id"))
         .order_by("-count")[:10]
     )
@@ -89,7 +88,7 @@ def dashboard(request):
         "diff": diff,
         "chart_labels": chart_labels,
         "chart_values": chart_values,
-        "ip_data": ip_data,
+        "user_data": user_data,
         "total_count": total_count,
         "retention_choices": RETENTION_CHOICES,
     }

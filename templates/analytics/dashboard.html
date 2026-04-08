@@ -35,29 +35,31 @@
         </div>
     </div>
 
-    <!-- IPアドレス別アクセスランキング -->
+    <!-- ユーザー別アクセスランキング -->
     <div class="card shadow-sm mb-4">
         <div class="card-body">
-            <h5 class="card-title">アクセス元IPランキング（直近30日）</h5>
+            <h5 class="card-title">アクセスランキング（直近30日）</h5>
             <div class="table-responsive">
                 <table class="table table-striped mb-0">
                     <thead>
                         <tr>
                             <th style="width: 50px;">#</th>
+                            <th>ユーザー名</th>
                             <th>IPアドレス</th>
                             <th style="width: 120px;" class="text-end">アクセス数</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for row in ip_data %}
+                        {% for row in user_data %}
                         <tr>
                             <td>{{ forloop.counter }}</td>
-                            <td><code>{{ row.ip_address }}</code></td>
+                            <td>{{ row.user__username|default:"（未ログイン）" }}</td>
+                            <td><code>{{ row.ip_address|default:"-" }}</code></td>
                             <td class="text-end">{{ row.count }}</td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="3" class="text-center text-muted">データがありません</td>
+                            <td colspan="4" class="text-center text-muted">データがありません</td>
                         </tr>
                         {% endfor %}
                     </tbody>
