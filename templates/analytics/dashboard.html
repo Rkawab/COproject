@@ -35,43 +35,54 @@
         </div>
     </div>
 
-    <!-- リファラーランキング -->
+    <!-- IPアドレス別アクセスランキング -->
     <div class="card shadow-sm mb-4">
         <div class="card-body">
-            <h5 class="card-title">アクセス元ランキング（直近30日）</h5>
+            <h5 class="card-title">アクセス元IPランキング（直近30日）</h5>
             <div class="table-responsive">
                 <table class="table table-striped mb-0">
                     <thead>
                         <tr>
                             <th style="width: 50px;">#</th>
-                            <th>アクセス元</th>
+                            <th>IPアドレス</th>
                             <th style="width: 120px;" class="text-end">アクセス数</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% if direct_count > 0 %}
+                        {% for row in ip_data %}
                         <tr>
-                            <td>1</td>
-                            <td class="text-muted">（直接アクセス）</td>
-                            <td class="text-end">{{ direct_count }}</td>
-                        </tr>
-                        {% endif %}
-                        {% for row in referrer_data %}
-                        <tr>
-                            <td>{{ forloop.counter|add:1 }}</td>
-                            <td class="text-truncate" style="max-width: 400px;">{{ row.referrer }}</td>
+                            <td>{{ forloop.counter }}</td>
+                            <td><code>{{ row.ip_address }}</code></td>
                             <td class="text-end">{{ row.count }}</td>
                         </tr>
                         {% empty %}
-                        {% if direct_count == 0 %}
                         <tr>
                             <td colspan="3" class="text-center text-muted">データがありません</td>
                         </tr>
-                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- データ削除 -->
+    <div class="card shadow-sm mb-4 border-danger">
+        <div class="card-body">
+            <h5 class="card-title text-danger">データ削除</h5>
+            <p class="text-muted mb-3">現在の総データ件数: <strong>{{ total_count }}</strong> 件</p>
+            <form method="post" action="{% url 'analytics:cleanup' %}" id="cleanupForm">
+                {% csrf_token %}
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <select name="days" class="form-select" style="width: auto;">
+                        {% for d in retention_choices %}
+                        <option value="{{ d }}">{{ d }}日より前</option>
+                        {% endfor %}
+                    </select>
+                    <span class="text-muted">のデータを削除する</span>
+                    <button type="button" class="btn btn-outline-danger" onclick="confirmCleanup()">削除</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -115,5 +126,13 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 });
+
+function confirmCleanup() {
+    const form = document.getElementById("cleanupForm");
+    const days = form.querySelector("select[name='days']").value;
+    if (confirm(days + "日より前のアクセスログを削除します。よろしいですか？")) {
+        form.submit();
+    }
+}
 </script>
 {% endblock %}

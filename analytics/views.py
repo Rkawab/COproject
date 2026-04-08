@@ -1,5 +1,6 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.db.models import Count
 from django.db.models.functions import TruncDate
@@ -7,9 +8,28 @@ from datetime import timedelta
 
 from .models import PageView
 
+# 保持日数の選択肢
+RETENTION_CHOICES = [30, 60, 90, 180]
+
 
 def is_staff(user):
     return user.is_staff
+
+
+@login_required
+@user_passes_test(is_staff)
+def cleanup(request):
+    """古いアクセスログを削除"""
+    if request.method == "POST":
+        try:
+            days = int(request.POST.get("days", 90))
+        except (ValueError, TypeError):
+            days = 90
+
+        cutoff = timezone.now() - timedelta(days=days)
+        deleted, _ = PageView.objects.filter(timestamp__lt=cutoff).delete()
+        messages.success(request, f"{days}日より前のデータ {deleted} 件を削除しました。")
+    return redirect("analytics:dashboard")
 
 
 @login_required
@@ -52,29 +72,25 @@ def dashboard(request):
         chart_labels.append(f"{d.month}/{d.day}")
         chart_values.append(date_counts.get(d, 0))
 
-    # リファラーランキング（直近30日、上位10件）
-    referrer_data = (
+    # IPアドレス別アクセス数ランキング（直近30日、上位10件）
+    ip_data = (
         PageView.objects.filter(timestamp__date__gte=thirty_days_ago)
-        .exclude(referrer="")
-        .values("referrer")
+        .exclude(ip_address__isnull=True)
+        .values("ip_address")
         .annotate(count=Count("id"))
         .order_by("-count")[:10]
     )
 
-    # 直接アクセス数
-    direct_count = (
-        PageView.objects.filter(
-            timestamp__date__gte=thirty_days_ago,
-            referrer="",
-        ).count()
-    )
+    # 総データ件数
+    total_count = PageView.objects.count()
 
     context = {
         "today_count": today_count,
         "diff": diff,
         "chart_labels": chart_labels,
         "chart_values": chart_values,
-        "referrer_data": referrer_data,
-        "direct_count": direct_count,
+        "ip_data": ip_data,
+        "total_count": total_count,
+        "retention_choices": RETENTION_CHOICES,
     }
     return render(request, "analytics/dashboard.html", context)
