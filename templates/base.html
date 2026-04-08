@@ -35,6 +35,11 @@
                         <li class="nav-item">
                             <a class="nav-link text-white" href="{% url 'accounts:info' %}">ユーザー情報</a>
                         </li>
+                        {% if user.is_staff %}
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{% url 'analytics:dashboard' %}">アクセス解析</a>
+                        </li>
+                        {% endif %}
                         <li class="nav-item">
                             <a class="nav-link text-white" href="{% url 'accounts:logout' %}">ログアウト</a>
                         </li>

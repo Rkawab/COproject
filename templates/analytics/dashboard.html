@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}アクセス解析{% endblock %}
+
+{% block content %}
+<div class="mt-4 mb-4">
+    <h2>アクセス解析</h2>
+
+    <!-- 本日のアクセス数カード -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">本日のアクセス数</h6>
+                    <p class="display-3 fw-bold mb-1" style="color: #fd510d;">{{ today_count }}</p>
+                    <p class="mb-0">
+                        {% if diff > 0 %}
+                            <span class="text-success">▲ {{ diff }}（前日比）</span>
+                        {% elif diff < 0 %}
+                            <span class="text-danger">▼ {{ diff }}（前日比）</span>
+                        {% else %}
+                            <span class="text-muted">± 0（前日比）</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 直近30日間の日別アクセス数グラフ -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">直近30日間のアクセス数</h5>
+            <canvas id="dailyChart"></canvas>
+        </div>
+    </div>
+
+    <!-- リファラーランキング -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">アクセス元ランキング（直近30日）</h5>
+            <div class="table-responsive">
+                <table class="table table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th>アクセス元</th>
+                            <th style="width: 120px;" class="text-end">アクセス数</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if direct_count > 0 %}
+                        <tr>
+                            <td>1</td>
+                            <td class="text-muted">（直接アクセス）</td>
+                            <td class="text-end">{{ direct_count }}</td>
+                        </tr>
+                        {% endif %}
+                        {% for row in referrer_data %}
+                        <tr>
+                            <td>{{ forloop.counter|add:1 }}</td>
+                            <td class="text-truncate" style="max-width: 400px;">{{ row.referrer }}</td>
+                            <td class="text-end">{{ row.count }}</td>
+                        </tr>
+                        {% empty %}
+                        {% if direct_count == 0 %}
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">データがありません</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const ctx = document.getElementById("dailyChart").getContext("2d");
+    new Chart(ctx, {
+        type: "bar",
+        data: {
+            labels: {{ chart_labels|safe }},
+            datasets: [{
+                label: "アクセス数",
+                data: {{ chart_values|safe }},
+                backgroundColor: "rgba(253, 81, 13, 0.6)",
+                borderColor: "#fd510d",
+                borderWidth: 1,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 },
+                },
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        autoSkip: true,
+                        maxTicksLimit: 15,
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
