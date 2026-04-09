@@ -45,7 +45,7 @@ class Ingredient(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name="ingredients")
     name = models.CharField(max_length=100, verbose_name="材料名")
     quantity = models.DecimalField(
-        max_digits=7, decimal_places=2, null=True, blank=True, verbose_name="数量"
+        max_digits=7, decimal_places=3, null=True, blank=True, verbose_name="数量"
     )
     unit = models.CharField(max_length=20, verbose_name="単位", blank=True)
     # 新フィールド: 数値化できない分量（「適量」「少々」等）
@@ -57,13 +57,21 @@ class Ingredient(models.Model):
 
     # Unicode分数パターン（料理で使う一般的な分数）
     _UNICODE_FRACS = [
-        (Decimal("0.25"), "\u00BC"),  # ¼
-        (Decimal("0.33"), "\u2153"),  # ⅓
-        (Decimal("0.34"), "\u2153"),  # ⅓（丸め誤差対応）
-        (Decimal("0.50"), "\u00BD"),  # ½
-        (Decimal("0.66"), "\u2154"),  # ⅔
-        (Decimal("0.67"), "\u2154"),  # ⅔（丸め誤差対応）
-        (Decimal("0.75"), "\u00BE"),  # ¾
+        (Decimal("0.125"), "\u215B"),  # ⅛
+        (Decimal("0.25"),  "\u00BC"),  # ¼
+        (Decimal("0.33"),  "\u2153"),  # ⅓
+        (Decimal("0.34"),  "\u2153"),  # ⅓（丸め誤差対応）
+        (Decimal("0.333"), "\u2153"),  # ⅓
+        (Decimal("0.375"), "\u215C"),  # ⅜
+        (Decimal("0.50"),  "\u00BD"),  # ½
+        (Decimal("0.500"), "\u00BD"),  # ½
+        (Decimal("0.625"), "\u215D"),  # ⅝
+        (Decimal("0.66"),  "\u2154"),  # ⅔
+        (Decimal("0.67"),  "\u2154"),  # ⅔（丸め誤差対応）
+        (Decimal("0.667"), "\u2154"),  # ⅔
+        (Decimal("0.75"),  "\u00BE"),  # ¾
+        (Decimal("0.750"), "\u00BE"),  # ¾
+        (Decimal("0.875"), "\u215E"),  # ⅞
     ]
     # 分数表示する単位
     _FRAC_UNITS = {"本", "個", "枚", "株", "束", "片", "丁", "玉", "缶", "袋",

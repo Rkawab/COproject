@@ -113,6 +113,7 @@
             <!-- 入力説明 -->
             <div class="text-muted small mb-2">
                 分量は<strong>数量</strong>と<strong>単位</strong>に分けて入力してください（例: 数量=2, 単位=大さじ）。<br>
+                数量は分数でも入力できます（例: <code>1/2</code>、<code>1/8</code>、<code>1 1/2</code>）。<br>
                 「適量」「少々」など数値化できない場合は<strong>テキスト</strong>欄に入力してください。<br>
                 調味料グループは「グループ」欄に <strong>A</strong>、<strong>タレ</strong> などを入力。
             </div>
@@ -165,7 +166,7 @@
                         <input type="text" name="ingredients-__prefix__-name" class="form-control form-control-sm" placeholder="">
                     </div>
                     <div class="col-2 col-md-2">
-                        <input type="number" name="ingredients-__prefix__-quantity" class="form-control form-control-sm" step="any" min="0" placeholder="">
+                        <input type="text" name="ingredients-__prefix__-quantity" class="form-control form-control-sm" placeholder="">
                     </div>
                     <div class="col-2 col-md-2">
                         <input type="text" name="ingredients-__prefix__-unit" class="form-control form-control-sm" placeholder="">

@@ -74,7 +74,7 @@ def extract_recipe_info(image_file: BinaryIO) -> dict:
 読み取りのルール:
 - 手書き文字が多少読みにくくても、文脈から推測して埋めてください。
 - 分量は数値と単位に分けてください。例: 「大さじ1」→ quantity=1, unit="大さじ"、「200g」→ quantity=200, unit="g"
-- 分数は小数に変換してください。例: 「1/2」→ 0.5、「小さじ1/2」→ quantity=0.5, unit="小さじ"
+- 分数はそのまま文字列で返してください。例: 「小さじ1/2」→ quantity="1/2", unit="小さじ"、「1/8個」→ quantity="1/8", unit="個"、「1と1/2カップ」→ quantity="1 1/2", unit="カップ"
 - 「適量」「少々」「ひとつまみ」など数値化できない分量は amount_text に入れ、quantity は null にしてください。
 - 略語表記（例: 大1 = 大さじ1）も可能な限り展開してください。
 - 分量は手順に書いてある場合もあります。手順からも分量を読み取って ingredients に反映してください。
@@ -154,15 +154,26 @@ def extract_recipe_info(image_file: BinaryIO) -> dict:
         raise RecipeReadError(f"人数を整数に変換できません: {obj['servings']}")
 
     # ingredients の正規化
+    import re as _re
     ingredients = []
     for item in obj["ingredients"]:
         qty = item.get("quantity")
-        # 数値変換（文字列で返ってきた場合の対応）
+        # 分数文字列はそのまま保持、それ以外は float 変換
         if qty is not None:
-            try:
-                qty = float(qty)
-            except (TypeError, ValueError):
-                qty = None
+            if isinstance(qty, str):
+                qty_s = qty.strip()
+                if _re.fullmatch(r'\d+/\d+|\d+\s+\d+/\d+', qty_s):
+                    qty = qty_s  # "1/2" や "1 1/2" はそのまま
+                else:
+                    try:
+                        qty = float(qty_s)
+                    except (TypeError, ValueError):
+                        qty = None
+            else:
+                try:
+                    qty = float(qty)
+                except (TypeError, ValueError):
+                    qty = None
         ingredients.append({
             "name": str(item.get("name", "")),
             "quantity": qty,

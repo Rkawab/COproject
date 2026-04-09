@@ -301,7 +301,7 @@ def _parse_ingredients_with_ai(raw_ingredients):
 ルール:
 - name: 材料名のみ。分量や単位は含めない。
 - quantity: 数値化できる分量の数値部分（例: 2, 200, 0.5）。数値化できない場合は null。
-  * 分数は小数に変換すること（1/2 → 0.5）。
+  * 分数はそのまま文字列で返すこと（1/2 → "1/2"、1と1/2 → "1 1/2"）。
 - unit: 単位（例: "大さじ", "g", "個", "本"）。数値化できない場合は空文字 ""。
 - amount_text: 数値化できない分量テキスト（例: "適量", "少々", "ひとつまみ"）。数値がある場合は空文字 ""。
   * quantity と amount_text は排他的: どちらか一方のみ値を入れること。
@@ -360,11 +360,22 @@ def _parse_ingredients_with_ai(raw_ingredients):
     ingredients = []
     for item in obj:
         qty = item.get("quantity")
+        # 分数文字列はそのまま保持、それ以外は float 変換
         if qty is not None:
-            try:
-                qty = float(qty)
-            except (TypeError, ValueError):
-                qty = None
+            if isinstance(qty, str):
+                qty_s = qty.strip()
+                if re.fullmatch(r'\d+/\d+|\d+\s+\d+/\d+', qty_s):
+                    qty = qty_s  # "1/2" や "1 1/2" はそのまま
+                else:
+                    try:
+                        qty = float(qty_s)
+                    except (TypeError, ValueError):
+                        qty = None
+            else:
+                try:
+                    qty = float(qty)
+                except (TypeError, ValueError):
+                    qty = None
         ingredients.append({
             "name": str(item.get("name", "")),
             "quantity": qty,
