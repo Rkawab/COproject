@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from django.contrib.messages import constants as messages_constants
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -78,6 +79,12 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "COproject.wsgi.application"
+
+
+# Bootstrap 5 用に messages のタグを調整（error → danger）
+MESSAGE_TAGS = {
+    messages_constants.ERROR: "danger",
+}
 
 
 # Database

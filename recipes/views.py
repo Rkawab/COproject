@@ -117,6 +117,8 @@ def recipe_create(request):
 
             messages.success(request, f"「{recipe.name}」を登録しました。")
             return redirect("recipes:detail", pk=recipe.pk)
+        else:
+            messages.error(request, "入力内容にエラーがあります。赤字部分をご確認ください。")
     else:
         form = RecipeForm()
         ingredient_formset = IngredientFormSet(prefix="ingredients")
@@ -184,6 +186,8 @@ def recipe_edit(request, pk):
 
             messages.success(request, f"「{recipe.name}」を更新しました。")
             return redirect("recipes:detail", pk=recipe.pk)
+        else:
+            messages.error(request, "入力内容にエラーがあります。赤字部分をご確認ください。")
     else:
         form = RecipeForm(instance=recipe)
         ingredient_formset = IngredientFormSet(instance=recipe, prefix="ingredients")

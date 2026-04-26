@@ -85,22 +85,26 @@
                 <div class="col-6">
                     <label class="form-label">{{ form.genre1.label }}</label>
                     {% render_field form.genre1 class="form-select" %}
+                    {% if form.genre1.errors %}<div class="text-danger small">{{ form.genre1.errors|striptags }}</div>{% endif %}
                 </div>
                 <div class="col-6">
                     <label class="form-label">{{ form.genre2.label }}</label>
                     {% render_field form.genre2 class="form-select" id="id_genre2" %}
+                    {% if form.genre2.errors %}<div class="text-danger small">{{ form.genre2.errors|striptags }}</div>{% endif %}
                 </div>
             </div>
             <div class="row g-2 mb-3" id="genre3-row">
                 <div class="col-6">
                     <label class="form-label">ジャンル3（主菜のみ）</label>
                     {% render_field form.genre3 class="form-select" id="id_genre3" %}
+                    {% if form.genre3.errors %}<div class="text-danger small">{{ form.genre3.errors|striptags }}</div>{% endif %}
                 </div>
             </div>
             <div class="row g-2 mb-3">
                 <div class="col-6">
                     <label class="form-label">{{ form.servings.label }}</label>
                     {% render_field form.servings class="form-control" %}
+                    {% if form.servings.errors %}<div class="text-danger small">{{ form.servings.errors|striptags }}</div>{% endif %}
                 </div>
             </div>
         </div>
@@ -129,7 +133,7 @@
             {{ ingredient_formset.management_form }}
             <div id="ingredient-formset">
                 {% for ing_form in ingredient_formset %}
-                <div class="ingredient-row row g-1 mb-2 align-items-center" data-group="{{ ing_form.instance.group }}">
+                <div class="ingredient-row row g-1 mb-2 align-items-center{% if ing_form.errors %} border border-danger rounded p-1{% endif %}" data-group="{{ ing_form.instance.group }}">
                     {{ ing_form.id }}
                     <div class="col-3 col-md-3">
                         {% render_field ing_form.name class="form-control form-control-sm" placeholder="" %}
@@ -155,6 +159,13 @@
                             <button type="button" class="btn btn-sm btn-outline-danger remove-row p-0 lh-1">✕</button>
                         {% endif %}
                     </div>
+                    {% if ing_form.errors %}
+                    <div class="col-12 text-danger small ps-2">
+                        {% for field, errs in ing_form.errors.items %}
+                            {% if field != '__all__' %}<strong>{{ field }}:</strong> {% endif %}{{ errs|striptags }}<br>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -193,7 +204,7 @@
             {{ step_formset.management_form }}
             <div id="step-formset">
                 {% for step_form in step_formset %}
-                <div class="step-row row g-2 mb-2 align-items-start">
+                <div class="step-row row g-2 mb-2 align-items-start{% if step_form.errors %} border border-danger rounded p-1{% endif %}">
                     {{ step_form.id }}
                     {{ step_form.order }}
                     <div class="col-auto pt-2 fw-bold text-muted step-num"></div>
@@ -209,6 +220,13 @@
                             <button type="button" class="btn btn-sm btn-outline-danger remove-row mt-2">✕</button>
                         {% endif %}
                     </div>
+                    {% if step_form.errors %}
+                    <div class="col-12 text-danger small ps-2">
+                        {% for field, errs in step_form.errors.items %}
+                            {% if field != '__all__' %}<strong>{{ field }}:</strong> {% endif %}{{ errs|striptags }}<br>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
