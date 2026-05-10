@@ -48,7 +48,7 @@ class UserActivateForm(forms.Form):
 
 
 class LoginForm(forms.Form):
-    email = forms.EmailField(label="メールアドレス")
+    login_id = forms.CharField(label="メールアドレスまたはユーザー名")
     password = forms.CharField(label="パスワード", widget=forms.PasswordInput())
 
 

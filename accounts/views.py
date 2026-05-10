@@ -32,9 +32,9 @@ def activate_user(request, token):
 def user_login(request):
     login_form = forms.LoginForm(request.POST or None)
     if login_form.is_valid():
-        email = login_form.cleaned_data["email"]
+        login_id = login_form.cleaned_data["login_id"]
         password = login_form.cleaned_data["password"]
-        user = authenticate(email=email, password=password)
+        user = authenticate(request, username=login_id, password=password)
         if user:
             login(request, user)
             return redirect("recipes:list")

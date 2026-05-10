@@ -163,6 +163,10 @@ MEDIA_URL = "/media/"
 # Django のデフォルトの User モデルではなく、カスタムユーザーモデル 'accounts.User' を使用する
 AUTH_USER_MODEL = "accounts.User"
 
+AUTHENTICATION_BACKENDS = [
+    "accounts.backends.EmailOrUsernameBackend",
+]
+
 # ログインしていない時に遷移するアドレス
 LOGIN_URL = "accounts:login"
 
