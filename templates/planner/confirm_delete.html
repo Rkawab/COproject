@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}週間プラン削除{% endblock %}
+{% block content %}
+<div class="card shadow-sm mt-4"><div class="card-body">
+    <h2>週間プランを削除しますか？</h2>
+    <p>{{ plan.start_date|date:"Y/m/d" }}開始のプランを削除します。この操作は元に戻せません。</p>
+    <form method="post">{% csrf_token %}<button class="btn btn-danger" type="submit">削除する</button> <a class="btn btn-outline-secondary" href="{% url 'planner:detail' plan.pk %}">キャンセル</a></form>
+</div></div>
+{% endblock %}

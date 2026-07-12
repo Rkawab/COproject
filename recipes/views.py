@@ -7,8 +7,17 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .forms import IngredientFormSet, RecipeForm, StepFormSet
-from .models import NutritionCache, Recipe
+from .forms import IngredientFormSet, QuickRecipeForm, RecipeForm, StepFormSet
+from .models import (
+    COOKING_METHOD_CHOICES,
+    FLAVOR_PROFILE_CHOICES,
+    MAIN_PROTEIN_CHOICES,
+    Ingredient,
+    NutritionCache,
+    Recipe,
+    Step,
+)
+from .recipe_guesser import guess_ingredients_and_steps
 from .recipe_reader import RecipeReadError, extract_recipe_info
 from .recipe_url_reader import RecipeURLError, fetch_recipe_from_url
 
@@ -23,9 +32,10 @@ def _fetch_and_cache_nutrition(recipe, old_name=None):
     # 現在の名前のキャッシュを削除して再取得
     NutritionCache.objects.filter(recipe_name=recipe.name).delete()
 
-    ingredients_text = "\n".join(
-        [f"- {i.name} {i.display_amount}" for i in recipe.ingredients.all()]
-    ) or "（材料未登録）"
+    ingredients_text = (
+        "\n".join([f"- {i.name} {i.display_amount}" for i in recipe.ingredients.all()])
+        or "（材料未登録）"
+    )
 
     prompt = f"""以下の料理について、1人分の推定栄養価を教えてください。
 
@@ -35,13 +45,18 @@ def _fetch_and_cache_nutrition(recipe, old_name=None):
 {ingredients_text}
 
 以下のJSON形式のみで返答してください（説明文・コードブロック不要）:
-{{"calories": 数値, "protein": 数値, "fat": 数値, "carbs": 数値, "salt": 数値}}
+{{"calories": 数値, "protein": 数値, "fat": 数値, "carbs": 数値, "salt": 数値,
+"fiber": 数値, "vegetables_g": 数値, "main_protein": "分類", "cooking_method": "分類", "flavor_profile": "分類"}}
 
-単位: calories=kcal, protein/fat/carbs/salt=g（すべて1人分）"""
+単位: calories=kcal, protein/fat/carbs/salt/fiber/vegetables_g=g（すべて1人分）
+main_protein は {[value for value, _ in MAIN_PROTEIN_CHOICES]} から選択
+cooking_method は {[value for value, _ in COOKING_METHOD_CHOICES]} から選択
+flavor_profile は {[value for value, _ in FLAVOR_PROFILE_CHOICES]} から選択"""
 
     raw = ""
     try:
         import openai
+
         client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -59,12 +74,29 @@ def _fetch_and_cache_nutrition(recipe, old_name=None):
             fat=data.get("fat"),
             carbs=data.get("carbs"),
             salt=data.get("salt"),
+            fiber=data.get("fiber"),
+            vegetables_g=data.get("vegetables_g"),
             raw_response=raw,
         )
+        choice_fields = {
+            "main_protein": MAIN_PROTEIN_CHOICES,
+            "cooking_method": COOKING_METHOD_CHOICES,
+            "flavor_profile": FLAVOR_PROFILE_CHOICES,
+        }
+        for field_name, choices in choice_fields.items():
+            value = data.get(field_name, "")
+            setattr(
+                recipe,
+                field_name,
+                value if value in {item[0] for item in choices} else "",
+            )
+        recipe.save(update_fields=list(choice_fields))
+        return True
     except json.JSONDecodeError:
         logger.error("栄養価JSONパース失敗: %s", raw)
     except Exception as e:
         logger.error("栄養価取得エラー: %s", e)
+    return False
 
 
 @login_required
@@ -83,12 +115,16 @@ def recipe_list(request):
     if genre2:
         recipes = recipes.filter(genre2=genre2)
 
-    return render(request, "recipes/list.html", {
-        "recipes": recipes,
-        "query": query,
-        "genre1": genre1,
-        "genre2": genre2,
-    })
+    return render(
+        request,
+        "recipes/list.html",
+        {
+            "recipes": recipes,
+            "query": query,
+            "genre1": genre1,
+            "genre2": genre2,
+        },
+    )
 
 
 @login_required
@@ -98,7 +134,11 @@ def recipe_create(request):
         ingredient_formset = IngredientFormSet(request.POST, prefix="ingredients")
         step_formset = StepFormSet(request.POST, prefix="steps")
 
-        if form.is_valid() and ingredient_formset.is_valid() and step_formset.is_valid():
+        if (
+            form.is_valid()
+            and ingredient_formset.is_valid()
+            and step_formset.is_valid()
+        ):
             recipe = form.save()
             ingredient_formset.instance = recipe
             ingredient_formset.save()
@@ -118,18 +158,77 @@ def recipe_create(request):
             messages.success(request, f"「{recipe.name}」を登録しました。")
             return redirect("recipes:detail", pk=recipe.pk)
         else:
-            messages.error(request, "入力内容にエラーがあります。赤字部分をご確認ください。")
+            messages.error(
+                request, "入力内容にエラーがあります。赤字部分をご確認ください。"
+            )
     else:
         form = RecipeForm()
         ingredient_formset = IngredientFormSet(prefix="ingredients")
         step_formset = StepFormSet(prefix="steps")
 
-    return render(request, "recipes/form.html", {
-        "form": form,
-        "ingredient_formset": ingredient_formset,
-        "step_formset": step_formset,
-        "title": "献立を登録",
-    })
+    return render(
+        request,
+        "recipes/form.html",
+        {
+            "form": form,
+            "ingredient_formset": ingredient_formset,
+            "step_formset": step_formset,
+            "title": "献立を登録",
+        },
+    )
+
+
+@login_required
+def recipe_quick_create(request):
+    if request.method == "POST":
+        form = QuickRecipeForm(request.POST)
+        if form.is_valid():
+            recipe = form.save(commit=False)
+            recipe.is_simple = True
+            recipe.save()
+
+            if form.cleaned_data["guess_details"]:
+                try:
+                    guessed = guess_ingredients_and_steps(recipe.name, recipe.servings)
+                    Ingredient.objects.bulk_create(
+                        [
+                            Ingredient(
+                                recipe=recipe,
+                                name=item["name"],
+                                quantity=item["quantity"],
+                                unit=item["unit"],
+                                amount_text=item["amount_text"],
+                            )
+                            for item in guessed["ingredients"]
+                        ]
+                    )
+                    Step.objects.bulk_create(
+                        [
+                            Step(recipe=recipe, order=order, description=description)
+                            for order, description in enumerate(guessed["steps"], 1)
+                        ]
+                    )
+                except Exception as exc:
+                    logger.error("市販品の材料・手順推測エラー: %s", exc)
+                    recipe.ingredients.all().delete()
+                    recipe.steps.all().delete()
+                    Step.objects.create(
+                        recipe=recipe,
+                        order=1,
+                        description="パッケージの記載手順に従って調理する",
+                    )
+
+            _fetch_and_cache_nutrition(recipe)
+
+            messages.success(request, f"「{recipe.name}」をクイック登録しました。")
+            return redirect("recipes:detail", pk=recipe.pk)
+        messages.error(
+            request, "入力内容にエラーがあります。赤字部分をご確認ください。"
+        )
+    else:
+        form = QuickRecipeForm()
+
+    return render(request, "recipes/quick_form.html", {"form": form})
 
 
 @login_required
@@ -152,11 +251,15 @@ def recipe_detail(request, pk):
     for group_name, items in grouped_dict.items():
         grouped_ingredients.append((group_name, items))
 
-    return render(request, "recipes/detail.html", {
-        "recipe": recipe,
-        "nutrition": nutrition,
-        "grouped_ingredients": grouped_ingredients,
-    })
+    return render(
+        request,
+        "recipes/detail.html",
+        {
+            "recipe": recipe,
+            "nutrition": nutrition,
+            "grouped_ingredients": grouped_ingredients,
+        },
+    )
 
 
 @login_required
@@ -166,10 +269,16 @@ def recipe_edit(request, pk):
     if request.method == "POST":
         old_name = recipe.name  # 名前変更検出のため保存前に記録
         form = RecipeForm(request.POST, instance=recipe)
-        ingredient_formset = IngredientFormSet(request.POST, instance=recipe, prefix="ingredients")
+        ingredient_formset = IngredientFormSet(
+            request.POST, instance=recipe, prefix="ingredients"
+        )
         step_formset = StepFormSet(request.POST, instance=recipe, prefix="steps")
 
-        if form.is_valid() and ingredient_formset.is_valid() and step_formset.is_valid():
+        if (
+            form.is_valid()
+            and ingredient_formset.is_valid()
+            and step_formset.is_valid()
+        ):
             form.save()
             ingredient_formset.save()
 
@@ -187,19 +296,25 @@ def recipe_edit(request, pk):
             messages.success(request, f"「{recipe.name}」を更新しました。")
             return redirect("recipes:detail", pk=recipe.pk)
         else:
-            messages.error(request, "入力内容にエラーがあります。赤字部分をご確認ください。")
+            messages.error(
+                request, "入力内容にエラーがあります。赤字部分をご確認ください。"
+            )
     else:
         form = RecipeForm(instance=recipe)
         ingredient_formset = IngredientFormSet(instance=recipe, prefix="ingredients")
         step_formset = StepFormSet(instance=recipe, prefix="steps")
 
-    return render(request, "recipes/form.html", {
-        "form": form,
-        "ingredient_formset": ingredient_formset,
-        "step_formset": step_formset,
-        "title": "献立を編集",
-        "recipe": recipe,
-    })
+    return render(
+        request,
+        "recipes/form.html",
+        {
+            "form": form,
+            "ingredient_formset": ingredient_formset,
+            "step_formset": step_formset,
+            "title": "献立を編集",
+            "recipe": recipe,
+        },
+    )
 
 
 @login_required
@@ -221,19 +336,22 @@ def get_nutrition(request, pk):
     # キャッシュがあればそのまま返す
     cached = NutritionCache.objects.filter(recipe_name=recipe.name).first()
     if cached:
-        return JsonResponse({
-            "cached": True,
-            "calories": cached.calories,
-            "protein": cached.protein,
-            "fat": cached.fat,
-            "carbs": cached.carbs,
-            "salt": cached.salt,
-        })
+        return JsonResponse(
+            {
+                "cached": True,
+                "calories": cached.calories,
+                "protein": cached.protein,
+                "fat": cached.fat,
+                "carbs": cached.carbs,
+                "salt": cached.salt,
+            }
+        )
 
     # 材料テキストを組み立てる
-    ingredients_text = "\n".join(
-        [f"- {i.name} {i.display_amount}" for i in recipe.ingredients.all()]
-    ) or "（材料未登録）"
+    ingredients_text = (
+        "\n".join([f"- {i.name} {i.display_amount}" for i in recipe.ingredients.all()])
+        or "（材料未登録）"
+    )
 
     prompt = f"""以下の料理について、1人分の推定栄養価を教えてください。
 
@@ -249,6 +367,7 @@ def get_nutrition(request, pk):
 
     try:
         import openai
+
         client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
         response = client.chat.completions.create(
             model="gpt-4o-mini",

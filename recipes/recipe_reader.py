@@ -9,6 +9,7 @@ from openai import OpenAI
 
 class RecipeReadError(Exception):
     """レシピ画像の読み取りに失敗したときに投げる例外."""
+
     pass
 
 
@@ -155,6 +156,7 @@ def extract_recipe_info(image_file: BinaryIO) -> dict:
 
     # ingredients の正規化
     import re as _re
+
     ingredients = []
     for item in obj["ingredients"]:
         qty = item.get("quantity")
@@ -162,7 +164,7 @@ def extract_recipe_info(image_file: BinaryIO) -> dict:
         if qty is not None:
             if isinstance(qty, str):
                 qty_s = qty.strip()
-                if _re.fullmatch(r'\d+/\d+|\d+\s+\d+/\d+', qty_s):
+                if _re.fullmatch(r"\d+/\d+|\d+\s+\d+/\d+", qty_s):
                     qty = qty_s  # "1/2" や "1 1/2" はそのまま
                 else:
                     try:
@@ -174,13 +176,15 @@ def extract_recipe_info(image_file: BinaryIO) -> dict:
                     qty = float(qty)
                 except (TypeError, ValueError):
                     qty = None
-        ingredients.append({
-            "name": str(item.get("name", "")),
-            "quantity": qty,
-            "unit": str(item.get("unit", "")),
-            "amount_text": str(item.get("amount_text", "")),
-            "group": str(item.get("group", "")),
-        })
+        ingredients.append(
+            {
+                "name": str(item.get("name", "")),
+                "quantity": qty,
+                "unit": str(item.get("unit", "")),
+                "amount_text": str(item.get("amount_text", "")),
+                "group": str(item.get("group", "")),
+            }
+        )
     obj["ingredients"] = ingredients
 
     # steps の正規化

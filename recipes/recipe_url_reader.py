@@ -33,14 +33,14 @@ def _clean_recipe_title(title: str) -> str:
         return title
 
     # 先頭の【...】や［...］を除去（「【保存版】」「【簡単】」など）
-    title = re.sub(r'^[【\[［][^】\]］]*[】\]］]\s*', '', title)
+    title = re.sub(r"^[【\[［][^】\]］]*[】\]］]\s*", "", title)
 
     # 装飾記号（♪♡♥☆★◎●〇♫❤💕🎵 等）で区切られた先頭の副題を繰り返し除去
     # パターン: 「副題 + 装飾記号 + 本題」
-    decorative_chars = r'[♪♫♬♩♭♯♡♥❤💕💖💗💛💚💙🎵✨🌟⭐★☆◆◇■□▲△▼▽※＊✿❀🌸💮✾]'
+    decorative_chars = r"[♪♫♬♩♭♯♡♥❤💕💖💗💛💚💙🎵✨🌟⭐★☆◆◇■□▲△▼▽※＊✿❀🌸💮✾]"
     while True:
         match = re.match(
-            rf'^(.+?)\s*{decorative_chars}+\s*(.+)$',
+            rf"^(.+?)\s*{decorative_chars}+\s*(.+)$",
             title,
         )
         if match and len(match.group(2)) >= 2:
@@ -49,13 +49,13 @@ def _clean_recipe_title(title: str) -> str:
             break
 
     # 末尾の装飾記号を除去
-    title = re.sub(rf'\s*{decorative_chars}+\s*$', '', title)
+    title = re.sub(rf"\s*{decorative_chars}+\s*$", "", title)
     # 先頭の装飾記号を除去
-    title = re.sub(rf'^\s*{decorative_chars}+\s*', '', title)
+    title = re.sub(rf"^\s*{decorative_chars}+\s*", "", title)
 
     # 先頭の「!」「！」+副題パターンを繰り返し除去（「簡単！時短！豚キムチ」→「豚キムチ」）
     while True:
-        match = re.match(r'^(.+?)[!！]+\s*(.+)$', title)
+        match = re.match(r"^(.+?)[!！]+\s*(.+)$", title)
         if match and len(match.group(2)) >= 2:
             title = match.group(2)
         else:
@@ -63,12 +63,42 @@ def _clean_recipe_title(title: str) -> str:
 
     return title.strip()
 
+
 # ジャンル推測用のキーワードマッピング
 GENRE1_KEYWORDS = {
-    "和食": ["和食", "和風", "醤油", "味噌", "出汁", "だし", "煮物", "焼き魚", "japanese"],
-    "洋食": ["洋食", "洋風", "パスタ", "グラタン", "シチュー", "ハンバーグ", "western", "italian", "french"],
+    "和食": [
+        "和食",
+        "和風",
+        "醤油",
+        "味噌",
+        "出汁",
+        "だし",
+        "煮物",
+        "焼き魚",
+        "japanese",
+    ],
+    "洋食": [
+        "洋食",
+        "洋風",
+        "パスタ",
+        "グラタン",
+        "シチュー",
+        "ハンバーグ",
+        "western",
+        "italian",
+        "french",
+    ],
     "中華": ["中華", "中国", "炒め", "麻婆", "餃子", "チャーハン", "chinese"],
-    "スイーツ": ["スイーツ", "デザート", "ケーキ", "クッキー", "プリン", "dessert", "sweet", "sweets"],
+    "スイーツ": [
+        "スイーツ",
+        "デザート",
+        "ケーキ",
+        "クッキー",
+        "プリン",
+        "dessert",
+        "sweet",
+        "sweets",
+    ],
 }
 
 GENRE2_MAP = {
@@ -76,7 +106,18 @@ GENRE2_MAP = {
     "主菜": ["主菜", "メイン", "肉", "魚", "main"],
     "副菜": ["副菜", "サラダ", "サイド", "side", "付け合わせ"],
     "汁物": ["汁物", "スープ", "味噌汁", "soup"],
-    "その他": ["デザート", "スイーツ", "ケーキ", "クッキー", "プリン", "お菓子", "ドリンク", "飲み物", "dessert", "sweet"],
+    "その他": [
+        "デザート",
+        "スイーツ",
+        "ケーキ",
+        "クッキー",
+        "プリン",
+        "お菓子",
+        "ドリンク",
+        "飲み物",
+        "dessert",
+        "sweet",
+    ],
 }
 
 GENRE3_MAP = {
@@ -87,6 +128,7 @@ GENRE3_MAP = {
 
 class RecipeURLError(Exception):
     """レシピURL解析時のエラー"""
+
     pass
 
 
@@ -105,10 +147,14 @@ def fetch_recipe_from_url(url):
         }
     """
     try:
-        resp = requests.get(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                          "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        }, timeout=15)
+        resp = requests.get(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            },
+            timeout=15,
+        )
         resp.raise_for_status()
     except requests.RequestException as e:
         raise RecipeURLError(f"URLの取得に失敗しました: {e}")
@@ -189,7 +235,9 @@ def _parse_jsonld_recipe(data):
                 # HowToStep / HowToSection
                 if inst.get("@type") == "HowToSection":
                     for sub in inst.get("itemListElement", []):
-                        text = sub.get("text", "") if isinstance(sub, dict) else str(sub)
+                        text = (
+                            sub.get("text", "") if isinstance(sub, dict) else str(sub)
+                        )
                         if text.strip():
                             steps.append(text.strip())
                 else:
@@ -249,7 +297,9 @@ def _extract_nadia_recipe(soup):
 
     # 手順
     steps = []
-    for inst in sorted(recipe.get("instructions", []), key=lambda x: x.get("sortOrder", 0)):
+    for inst in sorted(
+        recipe.get("instructions", []), key=lambda x: x.get("sortOrder", 0)
+    ):
         comment = inst.get("comment", "")
         # HTMLタグを除去
         comment = re.sub(r"<[^>]+>", "", comment).strip()
@@ -342,7 +392,9 @@ def _parse_ingredients_with_ai(raw_ingredients):
     try:
         obj = json.loads(content)
     except json.JSONDecodeError:
-        logger.warning("AIの応答をJSONとして解釈できません、regexフォールバック処理を使用")
+        logger.warning(
+            "AIの応答をJSONとして解釈できません、regexフォールバック処理を使用"
+        )
         return [_parse_ingredient_by_regex(item) for item in raw_ingredients]
 
     # レスポンスが {"ingredients": [...]} の形式の場合にも対応
@@ -353,7 +405,9 @@ def _parse_ingredients_with_ai(raw_ingredients):
                 break
         else:
             # dictだがリストを含まない場合はフォールバック
-            logger.warning("AIの応答が期待した形式ではありません、regexフォールバック処理を使用")
+            logger.warning(
+                "AIの応答が期待した形式ではありません、regexフォールバック処理を使用"
+            )
             return [_parse_ingredient_by_regex(item) for item in raw_ingredients]
 
     # 各要素を正規化
@@ -364,7 +418,7 @@ def _parse_ingredients_with_ai(raw_ingredients):
         if qty is not None:
             if isinstance(qty, str):
                 qty_s = qty.strip()
-                if re.fullmatch(r'\d+/\d+|\d+\s+\d+/\d+', qty_s):
+                if re.fullmatch(r"\d+/\d+|\d+\s+\d+/\d+", qty_s):
                     qty = qty_s  # "1/2" や "1 1/2" はそのまま
                 else:
                     try:
@@ -376,13 +430,15 @@ def _parse_ingredients_with_ai(raw_ingredients):
                     qty = float(qty)
                 except (TypeError, ValueError):
                     qty = None
-        ingredients.append({
-            "name": str(item.get("name", "")),
-            "quantity": qty,
-            "unit": str(item.get("unit", "")),
-            "amount_text": str(item.get("amount_text", "")),
-            "group": str(item.get("group", "")),
-        })
+        ingredients.append(
+            {
+                "name": str(item.get("name", "")),
+                "quantity": qty,
+                "unit": str(item.get("unit", "")),
+                "amount_text": str(item.get("amount_text", "")),
+                "group": str(item.get("group", "")),
+            }
+        )
 
     # AI解析後の後処理: name に分量が残っている場合にregexで分離
     ingredients = [_fix_ingredient_name(ing) for ing in ingredients]
@@ -401,70 +457,106 @@ def _parse_ingredient_by_regex(text):
     """
     text = text.strip()
     if not text:
-        return {"name": "", "quantity": None, "unit": "", "amount_text": "", "group": ""}
+        return {
+            "name": "",
+            "quantity": None,
+            "unit": "",
+            "amount_text": "",
+            "group": "",
+        }
 
     # グループ記号を抽出して除去（☆、★、◎、(A) など）
     group = ""
-    group_match = re.match(r'^([☆★◎〇●◯]|[（(]\s*[A-Za-zＡ-Ｚ]\s*[）)])\s*', text)
+    group_match = re.match(r"^([☆★◎〇●◯]|[（(]\s*[A-Za-zＡ-Ｚ]\s*[）)])\s*", text)
     if group_match:
         group = group_match.group(1).strip("（()） )( ")
-        text = text[group_match.end():]
+        text = text[group_match.end() :]
 
     # 非数量テキスト（適量、少々、ひとつまみ等）
-    non_numeric_amounts = r'適量|少々|ひとつまみ|ひとふり|お好みで|適宜|たっぷり|少量'
+    non_numeric_amounts = r"適量|少々|ひとつまみ|ひとふり|お好みで|適宜|たっぷり|少量"
 
     # パターン1: "材料名 数量単位" (例: "鶏もも肉 300g", "砂糖 140g")
     m = re.match(
-        r'^(.+?)\s+(\d+(?:\.\d+)?(?:/\d+)?)\s*(g|kg|ml|cc|L|個|本|枚|切れ|片|束|袋|缶|丁|合|カップ|cm|mm)\s*$',
+        r"^(.+?)\s+(\d+(?:\.\d+)?(?:/\d+)?)\s*(g|kg|ml|cc|L|個|本|枚|切れ|片|束|袋|缶|丁|合|カップ|cm|mm)\s*$",
         text,
     )
     if m:
         qty_str = m.group(2)
-        if '/' in qty_str:
-            parts = qty_str.split('/')
+        if "/" in qty_str:
+            parts = qty_str.split("/")
             qty = float(parts[0]) / float(parts[1])
         else:
             qty = float(qty_str)
-        return {"name": m.group(1).strip(), "quantity": qty, "unit": m.group(3), "amount_text": "", "group": group}
+        return {
+            "name": m.group(1).strip(),
+            "quantity": qty,
+            "unit": m.group(3),
+            "amount_text": "",
+            "group": group,
+        }
 
     # パターン2: "材料名 計量単位+数量" (例: "醤油 大さじ2", "酒 小さじ1/2")
     m = re.match(
-        r'^(.+?)\s+(大さじ|小さじ)\s*(\d+(?:\.\d+)?(?:/\d+)?)\s*$',
+        r"^(.+?)\s+(大さじ|小さじ)\s*(\d+(?:\.\d+)?(?:/\d+)?)\s*$",
         text,
     )
     if m:
         qty_str = m.group(3)
-        if '/' in qty_str:
-            parts = qty_str.split('/')
+        if "/" in qty_str:
+            parts = qty_str.split("/")
             qty = float(parts[0]) / float(parts[1])
         else:
             qty = float(qty_str)
-        return {"name": m.group(1).strip(), "quantity": qty, "unit": m.group(2), "amount_text": "", "group": group}
+        return {
+            "name": m.group(1).strip(),
+            "quantity": qty,
+            "unit": m.group(2),
+            "amount_text": "",
+            "group": group,
+        }
 
     # パターン3: "材料名 非数量テキスト" (例: "塩 少々", "サラダ油 適量")
     m = re.match(
-        rf'^(.+?)\s+({non_numeric_amounts})\s*$',
+        rf"^(.+?)\s+({non_numeric_amounts})\s*$",
         text,
     )
     if m:
-        return {"name": m.group(1).strip(), "quantity": None, "unit": "", "amount_text": m.group(2), "group": group}
+        return {
+            "name": m.group(1).strip(),
+            "quantity": None,
+            "unit": "",
+            "amount_text": m.group(2),
+            "group": group,
+        }
 
     # パターン4: "材料名 数量+単位" (その他の単位)
     m = re.match(
-        r'^(.+?)\s+(\d+(?:\.\d+)?(?:/\d+)?)\s*(.+?)\s*$',
+        r"^(.+?)\s+(\d+(?:\.\d+)?(?:/\d+)?)\s*(.+?)\s*$",
         text,
     )
     if m and len(m.group(3)) <= 4:
         qty_str = m.group(2)
-        if '/' in qty_str:
-            parts = qty_str.split('/')
+        if "/" in qty_str:
+            parts = qty_str.split("/")
             qty = float(parts[0]) / float(parts[1])
         else:
             qty = float(qty_str)
-        return {"name": m.group(1).strip(), "quantity": qty, "unit": m.group(3), "amount_text": "", "group": group}
+        return {
+            "name": m.group(1).strip(),
+            "quantity": qty,
+            "unit": m.group(3),
+            "amount_text": "",
+            "group": group,
+        }
 
     # どのパターンにも一致しない場合はそのまま
-    return {"name": text, "quantity": None, "unit": "", "amount_text": "", "group": group}
+    return {
+        "name": text,
+        "quantity": None,
+        "unit": "",
+        "amount_text": "",
+        "group": group,
+    }
 
 
 def _fix_ingredient_name(ingredient):
@@ -473,15 +565,15 @@ def _fix_ingredient_name(ingredient):
     # nameに数量+単位パターンが含まれているかチェック
     # 例: "金時豆 250g", "鶏もも肉300g", "醤油 大さじ1"
     has_amount_pattern = re.search(
-        r'\s*\d+(?:\.\d+)?(?:/\d+)?\s*(?:g|kg|ml|cc|L|個|本|枚|切れ|片|束|袋|缶|丁|合|カップ|cm|mm|大さじ|小さじ)\s*$',
+        r"\s*\d+(?:\.\d+)?(?:/\d+)?\s*(?:g|kg|ml|cc|L|個|本|枚|切れ|片|束|袋|缶|丁|合|カップ|cm|mm|大さじ|小さじ)\s*$",
         name,
     )
     has_amount_text = re.search(
-        r'\s+(?:適量|少々|ひとつまみ|ひとふり|お好みで|適宜|たっぷり|少量)\s*$',
+        r"\s+(?:適量|少々|ひとつまみ|ひとふり|お好みで|適宜|たっぷり|少量)\s*$",
         name,
     )
     has_measure_prefix = re.search(
-        r'\s+(?:大さじ|小さじ)\s*\d+(?:\.\d+)?(?:/\d+)?\s*$',
+        r"\s+(?:大さじ|小さじ)\s*\d+(?:\.\d+)?(?:/\d+)?\s*$",
         name,
     )
 

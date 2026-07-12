@@ -14,6 +14,9 @@
                 {% if recipe.genre3 %}
                 <span class="badge bg-secondary">{{ recipe.genre3 }}</span>
                 {% endif %}
+                {% if recipe.is_simple %}
+                <span class="badge bg-info text-dark">市販品</span>
+                {% endif %}
                 <button class="btn btn-outline-primary btn-sm py-0 px-1 ms-2 copy-url-btn" onclick="copyRecipeUrl(this)" title="URLをコピー">
                     <small>URLをコピー</small>
                 </button>
@@ -108,12 +111,14 @@
                 </div>
                 <div class="card-body">
                     {% if nutrition %}
-                    <div class="row text-center g-2">
+                    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 text-center g-2">
                         <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.calories|floatformat:0 }}</div><div class="label">kcal</div></div></div>
                         <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.protein|floatformat:1 }}</div><div class="label">たんぱく質(g)</div></div></div>
                         <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.fat|floatformat:1 }}</div><div class="label">脂質(g)</div></div></div>
                         <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.carbs|floatformat:1 }}</div><div class="label">炭水化物(g)</div></div></div>
                         <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.salt|floatformat:1 }}</div><div class="label">塩分(g)</div></div></div>
+                        <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.fiber|floatformat:1 }}</div><div class="label">食物繊維(g)</div></div></div>
+                        <div class="col"><div class="nutrition-item"><div class="value">{{ nutrition.vegetables_g|floatformat:0 }}</div><div class="label">野菜量(g)</div></div></div>
                     </div>
                     <p class="text-muted small mt-2 mb-0">※ AI による推定値です。実際の値と異なる場合があります。</p>
                     {% else %}

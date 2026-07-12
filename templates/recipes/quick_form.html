@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}クイック登録{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-3">
+    <div class="col-12 col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header fw-bold">クイック登録</div>
+            <div class="card-body">
+                <p class="text-muted small">市販品の料理名とジャンルをすばやく登録します。</p>
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% for field in form %}
+                    <div class="mb-3{% if field.name == 'guess_details' %} form-check{% endif %}"{% if field.name == "genre3" %} id="genre3-field"{% endif %}>
+                        {% if field.name == "guess_details" %}
+                        {{ field }}
+                        <label for="{{ field.id_for_label }}" class="form-check-label">{{ field.label }}</label>
+                        <div class="form-text">保存時に材料・手順と栄養価を順番に推測するため、5〜10秒ほどかかる場合があります。</div>
+                        {% else %}
+                        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                        {{ field }}
+                        {% endif %}
+                        {% for error in field.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                    <div class="text-danger small mb-3">{{ error }}</div>
+                    {% endfor %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">登録する</button>
+                        <a href="{% url 'recipes:list' %}" class="btn btn-outline-secondary">キャンセル</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const genre2 = document.getElementById("id_genre2");
+    const genre3Field = document.getElementById("genre3-field");
+    const genre3 = document.getElementById("id_genre3");
+
+    function toggleGenre3() {
+        const isMain = genre2.value === "主菜";
+        genre3Field.classList.toggle("d-none", !isMain);
+        if (!isMain) genre3.value = "";
+    }
+
+    genre2.addEventListener("change", toggleGenre3);
+    toggleGenre3();
+});
+</script>
+{% endblock %}

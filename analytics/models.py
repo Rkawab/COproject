@@ -4,6 +4,7 @@ from django.db import models
 
 class PageView(models.Model):
     """ページビュー記録"""
+
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
     path = models.CharField(max_length=500)
     user = models.ForeignKey(

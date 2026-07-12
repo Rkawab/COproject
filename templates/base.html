@@ -32,7 +32,14 @@
                             <a class="nav-link text-white" href="{% url 'recipes:list' %}">献立一覧</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-white" href="{% url 'recipes:create' %}">＋ 登録</a>
+                            <a class="nav-link text-white" href="{% url 'planner:list' %}">週間プラン</a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle text-white" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">＋ 登録</a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{% url 'recipes:create' %}">通常登録</a></li>
+                                <li><a class="dropdown-item" href="{% url 'recipes:quick_create' %}">クイック登録</a></li>
+                            </ul>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link text-white" href="{% url 'accounts:info' %}">ユーザー情報</a>
@@ -73,7 +80,15 @@
     // フォーム二重送信防止
     document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll("form").forEach(function (form) {
-            form.addEventListener("submit", function () {
+            form.addEventListener("submit", function (event) {
+                // name/value付きの押下ボタンは、無効化前にhiddenへ退避する。
+                if (event.submitter && event.submitter.name) {
+                    var actionInput = document.createElement("input");
+                    actionInput.type = "hidden";
+                    actionInput.name = event.submitter.name;
+                    actionInput.value = event.submitter.value;
+                    form.appendChild(actionInput);
+                }
                 form.querySelectorAll("button[type='submit'], input[type='submit']").forEach(function (btn) {
                     btn.disabled = true;
                     if (btn.tagName.toLowerCase() === 'button') btn.innerText = "保存中…";

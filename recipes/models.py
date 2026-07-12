@@ -23,13 +23,79 @@ GENRE3_CHOICES = [
     ("魚系", "魚系"),
 ]
 
+MAIN_PROTEIN_CHOICES = [
+    (value, value)
+    for value in (
+        "鶏肉",
+        "豚肉",
+        "牛肉",
+        "ひき肉",
+        "魚",
+        "魚介その他",
+        "豆腐・大豆",
+        "卵",
+        "なし",
+    )
+]
+COOKING_METHOD_CHOICES = [
+    (value, value)
+    for value in (
+        "焼く",
+        "炒める",
+        "煮る",
+        "揚げる",
+        "蒸す",
+        "茹でる",
+        "和える・生",
+        "汁物",
+        "その他",
+    )
+]
+FLAVOR_PROFILE_CHOICES = [
+    (value, value)
+    for value in (
+        "和風だし・醤油",
+        "味噌",
+        "塩",
+        "甘辛",
+        "中華",
+        "カレー・スパイス",
+        "トマト",
+        "クリーム・チーズ",
+        "エスニック",
+        "その他",
+    )
+]
+
 
 class Recipe(models.Model):
     name = models.CharField(max_length=200, verbose_name="料理名")
-    genre1 = models.CharField(max_length=20, choices=GENRE1_CHOICES, verbose_name="ジャンル1")
-    genre2 = models.CharField(max_length=20, choices=GENRE2_CHOICES, verbose_name="ジャンル2")
-    genre3 = models.CharField(max_length=20, choices=GENRE3_CHOICES, blank=True, verbose_name="ジャンル3")
+    genre1 = models.CharField(
+        max_length=20, choices=GENRE1_CHOICES, verbose_name="ジャンル1"
+    )
+    genre2 = models.CharField(
+        max_length=20, choices=GENRE2_CHOICES, verbose_name="ジャンル2"
+    )
+    genre3 = models.CharField(
+        max_length=20, choices=GENRE3_CHOICES, blank=True, verbose_name="ジャンル3"
+    )
     servings = models.PositiveIntegerField(verbose_name="人数")
+    is_simple = models.BooleanField(default=False, verbose_name="市販品")
+    main_protein = models.CharField(
+        max_length=20,
+        choices=MAIN_PROTEIN_CHOICES,
+        blank=True,
+        verbose_name="主たんぱく源",
+    )
+    cooking_method = models.CharField(
+        max_length=20, choices=COOKING_METHOD_CHOICES, blank=True, verbose_name="調理法"
+    )
+    flavor_profile = models.CharField(
+        max_length=20,
+        choices=FLAVOR_PROFILE_CHOICES,
+        blank=True,
+        verbose_name="味付け系統",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -42,14 +108,18 @@ class Recipe(models.Model):
 
 
 class Ingredient(models.Model):
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name="ingredients")
+    recipe = models.ForeignKey(
+        Recipe, on_delete=models.CASCADE, related_name="ingredients"
+    )
     name = models.CharField(max_length=100, verbose_name="材料名")
     quantity = models.DecimalField(
         max_digits=7, decimal_places=3, null=True, blank=True, verbose_name="数量"
     )
     unit = models.CharField(max_length=20, verbose_name="単位", blank=True)
     # 新フィールド: 数値化できない分量（「適量」「少々」等）
-    amount_text = models.CharField(max_length=50, verbose_name="テキスト分量", blank=True)
+    amount_text = models.CharField(
+        max_length=50, verbose_name="テキスト分量", blank=True
+    )
     group = models.CharField(max_length=20, verbose_name="グループ", blank=True)
 
     class Meta:
@@ -57,25 +127,43 @@ class Ingredient(models.Model):
 
     # Unicode分数パターン（料理で使う一般的な分数）
     _UNICODE_FRACS = [
-        (Decimal("0.125"), "\u215B"),  # ⅛
-        (Decimal("0.25"),  "\u00BC"),  # ¼
-        (Decimal("0.33"),  "\u2153"),  # ⅓
-        (Decimal("0.34"),  "\u2153"),  # ⅓（丸め誤差対応）
+        (Decimal("0.125"), "\u215b"),  # ⅛
+        (Decimal("0.25"), "\u00bc"),  # ¼
+        (Decimal("0.33"), "\u2153"),  # ⅓
+        (Decimal("0.34"), "\u2153"),  # ⅓（丸め誤差対応）
         (Decimal("0.333"), "\u2153"),  # ⅓
-        (Decimal("0.375"), "\u215C"),  # ⅜
-        (Decimal("0.50"),  "\u00BD"),  # ½
-        (Decimal("0.500"), "\u00BD"),  # ½
-        (Decimal("0.625"), "\u215D"),  # ⅝
-        (Decimal("0.66"),  "\u2154"),  # ⅔
-        (Decimal("0.67"),  "\u2154"),  # ⅔（丸め誤差対応）
+        (Decimal("0.375"), "\u215c"),  # ⅜
+        (Decimal("0.50"), "\u00bd"),  # ½
+        (Decimal("0.500"), "\u00bd"),  # ½
+        (Decimal("0.625"), "\u215d"),  # ⅝
+        (Decimal("0.66"), "\u2154"),  # ⅔
+        (Decimal("0.67"), "\u2154"),  # ⅔（丸め誤差対応）
         (Decimal("0.667"), "\u2154"),  # ⅔
-        (Decimal("0.75"),  "\u00BE"),  # ¾
-        (Decimal("0.750"), "\u00BE"),  # ¾
-        (Decimal("0.875"), "\u215E"),  # ⅞
+        (Decimal("0.75"), "\u00be"),  # ¾
+        (Decimal("0.750"), "\u00be"),  # ¾
+        (Decimal("0.875"), "\u215e"),  # ⅞
     ]
     # 分数表示する単位
-    _FRAC_UNITS = {"本", "個", "枚", "株", "束", "片", "丁", "玉", "缶", "袋",
-                   "パック", "切れ", "切", "大さじ", "小さじ", "カップ", "合", "房"}
+    _FRAC_UNITS = {
+        "本",
+        "個",
+        "枚",
+        "株",
+        "束",
+        "片",
+        "丁",
+        "玉",
+        "缶",
+        "袋",
+        "パック",
+        "切れ",
+        "切",
+        "大さじ",
+        "小さじ",
+        "カップ",
+        "合",
+        "房",
+    }
     # 整数丸めする単位
     _ROUND_UNITS = {"g", "kg", "ml", "mL", "cc", "L"}
 
@@ -141,11 +229,15 @@ class Step(models.Model):
 
 class NutritionCache(models.Model):
     recipe_name = models.CharField(max_length=200, unique=True, verbose_name="料理名")
-    calories = models.FloatField(null=True, blank=True, verbose_name="カロリー(kcal/人)")
+    calories = models.FloatField(
+        null=True, blank=True, verbose_name="カロリー(kcal/人)"
+    )
     protein = models.FloatField(null=True, blank=True, verbose_name="たんぱく質(g/人)")
     fat = models.FloatField(null=True, blank=True, verbose_name="脂質(g/人)")
     carbs = models.FloatField(null=True, blank=True, verbose_name="炭水化物(g/人)")
     salt = models.FloatField(null=True, blank=True, verbose_name="塩分(g/人)")
+    fiber = models.FloatField(null=True, blank=True, verbose_name="食物繊維(g/人)")
+    vegetables_g = models.FloatField(null=True, blank=True, verbose_name="野菜量(g/人)")
     raw_response = models.TextField(blank=True, verbose_name="APIレスポンス")
     fetched_at = models.DateTimeField(auto_now_add=True)
 

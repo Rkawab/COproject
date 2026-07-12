@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}週間プラン詳細{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mt-3 mb-3">
+    <div><h2>週間プラン</h2><p class="text-muted mb-0">{{ plan.start_date|date:"Y/m/d" }}〜{{ plan.end_date|date:"m/d" }}</p></div>
+    <a href="{% url 'planner:delete' plan.pk %}" class="btn btn-outline-danger btn-sm">削除</a>
+</div>
+
+{% if plan.ai_comment %}<div class="alert alert-info"><strong>AIコメント:</strong> {{ plan.ai_comment }}</div>{% endif %}
+{% if plan.user_request %}<div class="alert alert-light border"><strong>生成時の要望:</strong> {{ plan.user_request|linebreaksbr }}</div>{% endif %}
+
+<div class="row g-3 mb-4">
+{% for slot in plan.slots.all %}
+    <div class="col-12 col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header d-flex justify-content-between"><strong>枠{{ slot.order }}</strong><span>{{ slot.date_label }}（{{ slot.days }}日）</span></div>
+            <div class="card-body">
+                <p class="mb-1">主菜: {% if slot.main_recipe %}<a href="{% url 'recipes:detail' slot.main_recipe.pk %}">{{ slot.main_recipe.name }}</a>{% else %}<span class="text-muted">削除済み</span>{% endif %}</p>
+                <p>副菜: {% if slot.side_recipe %}<a href="{% url 'recipes:detail' slot.side_recipe.pk %}">{{ slot.side_recipe.name }}</a>{% else %}<span class="text-muted">削除済み</span>{% endif %}</p>
+                {% if slot.reason %}<p class="small text-muted">{{ slot.reason }}</p>{% endif %}
+                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#slotModal{{ slot.pk }}">献立を差し替える</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="slotModal{{ slot.pk }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog"><div class="modal-content">
+            <form method="post" action="{% url 'planner:slot_update' plan.pk slot.pk %}">
+                {% csrf_token %}
+                <div class="modal-header"><h5 class="modal-title">枠{{ slot.order }}を編集</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <label class="form-label">主菜</label><select class="form-select mb-3" name="main_recipe">{% for recipe in mains %}<option value="{{ recipe.pk }}" {% if recipe.pk == slot.main_recipe_id %}selected{% endif %}>{{ recipe.name }}</option>{% endfor %}</select>
+                    <label class="form-label">副菜</label><select class="form-select" name="side_recipe">{% for recipe in sides %}<option value="{{ recipe.pk }}" {% if recipe.pk == slot.side_recipe_id %}selected{% endif %}>{{ recipe.name }}</option>{% endfor %}</select>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">キャンセル</button><button class="btn btn-primary" type="submit">更新</button></div>
+            </form>
+        </div></div>
+    </div>
+{% endfor %}
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header fw-bold">1人1日あたりの栄養サマリ</div>
+    <div class="card-body">
+        {% if nutrition.included_days %}
+        <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 text-center g-2">
+            <div class="col"><strong>{{ nutrition.values.calories }}</strong><br><small>kcal</small></div>
+            <div class="col"><strong>{{ nutrition.values.protein }}</strong><br><small>たんぱく質(g)</small></div>
+            <div class="col"><strong>{{ nutrition.values.fat }}</strong><br><small>脂質(g)</small></div>
+            <div class="col"><strong>{{ nutrition.values.carbs }}</strong><br><small>炭水化物(g)</small></div>
+            <div class="col"><strong>{{ nutrition.values.salt }}</strong><br><small>塩分(g)</small></div>
+            <div class="col"><strong>{{ nutrition.values.fiber }}</strong><br><small>食物繊維(g)</small></div>
+            <div class="col"><strong>{{ nutrition.values.vegetables_g }}</strong><br><small>野菜量(g)</small></div>
+        </div>
+        {% else %}<p class="text-muted mb-0">集計できる栄養データがありません。</p>{% endif %}
+        {% if nutrition.excluded %}<p class="small text-muted mt-3 mb-0">集計対象外: {{ nutrition.excluded|join:", " }}</p>{% endif %}
+    </div>
+</div>
+<a href="{% url 'planner:list' %}" class="btn btn-outline-secondary mb-4">一覧へ戻る</a>
+{% endblock %}

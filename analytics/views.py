@@ -28,7 +28,9 @@ def cleanup(request):
 
         cutoff = timezone.now() - timedelta(days=days)
         deleted, _ = PageView.objects.filter(timestamp__lt=cutoff).delete()
-        messages.success(request, f"{days}日より前のデータ {deleted} 件を削除しました。")
+        messages.success(
+            request, f"{days}日より前のデータ {deleted} 件を削除しました。"
+        )
     return redirect("analytics:dashboard")
 
 
@@ -42,14 +44,10 @@ def dashboard(request):
     thirty_days_ago = today - timedelta(days=30)
 
     # 本日のアクセス数
-    today_count = PageView.objects.filter(
-        timestamp__date=today
-    ).count()
+    today_count = PageView.objects.filter(timestamp__date=today).count()
 
     # 昨日のアクセス数（前日比用）
-    yesterday_count = PageView.objects.filter(
-        timestamp__date=yesterday
-    ).count()
+    yesterday_count = PageView.objects.filter(timestamp__date=yesterday).count()
 
     # 前日比
     diff = today_count - yesterday_count

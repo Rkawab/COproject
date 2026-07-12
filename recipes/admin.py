@@ -15,7 +15,14 @@ class StepInline(admin.TabularInline):
 
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
-    list_display = ("name", "genre1", "genre2", "genre3", "servings", "created_at")
+    list_display = (
+        "name",
+        "genre1",
+        "genre2",
+        "main_protein",
+        "cooking_method",
+        "created_at",
+    )
     list_filter = ("genre1", "genre2")
     search_fields = ("name",)
     inlines = [IngredientInline, StepInline]
@@ -23,4 +30,14 @@ class RecipeAdmin(admin.ModelAdmin):
 
 @admin.register(NutritionCache)
 class NutritionCacheAdmin(admin.ModelAdmin):
-    list_display = ("recipe_name", "calories", "protein", "fat", "carbs", "salt", "fetched_at")
+    list_display = (
+        "recipe_name",
+        "calories",
+        "protein",
+        "fat",
+        "carbs",
+        "salt",
+        "fiber",
+        "vegetables_g",
+        "fetched_at",
+    )

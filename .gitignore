@@ -24,6 +24,12 @@ ENV/
 # Migrations
 **/migrations/
 !*/migrations/__init__.py
+!recipes/migrations/
+recipes/migrations/*
+!recipes/migrations/*.py
+!planner/migrations/
+planner/migrations/*
+!planner/migrations/*.py
 
 # Static files
 staticfiles/

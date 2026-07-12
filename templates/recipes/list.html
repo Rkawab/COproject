@@ -59,6 +59,9 @@
                         {% if recipe.genre3 %}
                         <span class="badge bg-secondary">{{ recipe.genre3 }}</span>
                         {% endif %}
+                        {% if recipe.is_simple %}
+                        <span class="badge bg-info text-dark">市販品</span>
+                        {% endif %}
                     </div>
                     <p class="card-text small text-muted">
                         {{ recipe.created_at|date:"Y/m/d" }}
