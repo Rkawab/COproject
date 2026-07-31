@@ -2,79 +2,56 @@
 {% block title %}週間プランを作る{% endblock %}
 {% block content %}
 <h2 class="mt-3 mb-3">週間プランを作る</h2>
-<form method="post">
-{% csrf_token %}
-<div class="card shadow-sm mb-3">
-  <div class="card-header fw-bold">1. 作る日・要望</div>
-  <div class="card-body">
-    <label class="form-label" for="start_date">開始日</label>
-    <input class="form-control mb-3" type="date" id="start_date" name="start_date" value="{{ start_date }}" required>
-    <div class="d-flex flex-wrap gap-2 mb-3">
-      <button type="button" class="btn btn-outline-secondary btn-sm preset-btn" data-values="new,continue,new,continue,new,continue,new">いつもの</button>
-      <button type="button" class="btn btn-outline-secondary btn-sm preset-btn" data-values="new,continue,continue,new,continue,new,continue">3日→2日→2日</button>
-      <button type="button" class="btn btn-outline-secondary btn-sm preset-btn" data-values="new,new,new,new,new,skip,skip">平日のみ</button>
-    </div>
-    <div class="day-schedule vstack gap-2 mb-3">
-      {% for row in day_rows %}
-      <div class="day-row d-flex align-items-center gap-2" data-index="{{ row.index }}">
-        <span class="day-label fw-bold flex-shrink-0" style="width:5.5rem">{{ row.date|date:"n/j" }}({{ row.weekday }})</span>
-        <select class="form-select form-select-sm day-status" name="day_{{ row.index }}">
-          {% for value, label in day_status_choices %}<option value="{{ value }}" {% if value == row.status %}selected{% endif %}>{{ label }}</option>{% endfor %}
-        </select>
-      </div>
-      {% endfor %}
-    </div>
-    <label class="form-label" for="user_request">今週の要望（任意）</label>
-    <textarea class="form-control mb-3" id="user_request" name="user_request" rows="3" placeholder="例: 肉が多めに食べたい&#10;例: 水〜金はカレー&#10;例: 金曜は1人分">{{ user_request }}</textarea>
-    <button type="submit" name="action" value="generate" class="btn btn-primary">サジェスト生成</button>
+<form method="post">{% csrf_token %}
+<div class="card shadow-sm mb-3"><div class="card-header fw-bold">1. 作る日・要望</div><div class="card-body">
+  <label class="form-label" for="start_date">開始日</label>
+  <input class="form-control mb-3" type="date" id="start_date" name="start_date" value="{{ start_date }}" required>
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <button type="button" class="btn btn-outline-secondary btn-sm preset-both">いつもの</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm preset-main">主菜 3日→2日→2日</button>
   </div>
-</div>
-{% if slots is not None %}
-<div class="card shadow-sm mb-3">
-  <div class="card-header fw-bold">2. 生成結果を編集</div>
-  <div class="card-body">
-    <input type="hidden" name="week_comment" value="{{ week_comment }}">
-    <div class="row g-3">
-      {% for slot in slots %}
-      <div class="col-12 col-lg-6"><div class="border rounded p-3 h-100">
-        <h5>枠{{ slot.order }} <span class="badge bg-secondary">{{ slot.date_label }}・{{ slot.days }}日</span></h5>
-        <label class="form-label">主菜</label>
-        <select class="form-select mb-2" name="main_{{ slot.order }}">{% for recipe in mains %}<option value="{{ recipe.pk }}" {% if recipe.pk|stringformat:'s' == slot.main_id|stringformat:'s' %}selected{% endif %}>{{ recipe.name }}</option>{% endfor %}</select>
-        <label class="form-label">副菜</label>
-        <select class="form-select mb-2" name="side_{{ slot.order }}">{% for recipe in sides %}<option value="{{ recipe.pk }}" {% if recipe.pk|stringformat:'s' == slot.side_id|stringformat:'s' %}selected{% endif %}>{{ recipe.name }}</option>{% endfor %}</select>
-        <label class="form-label">選定理由</label>
-        <input class="form-control" name="reason_{{ slot.order }}" value="{{ slot.reason }}" maxlength="200">
-      </div></div>
-      {% endfor %}
+  <div class="row g-1 fw-bold small text-center mb-1"><div class="col-4 text-start">日付</div><div class="col-4">主菜</div><div class="col-4">副菜</div></div>
+  <div class="vstack gap-2 mb-3">
+  {% for row in day_rows %}
+    <div class="day-row row g-1 align-items-center" data-index="{{ row.index }}">
+      <div class="col-4 day-label fw-bold small">{{ row.date|date:"n/j" }}({{ row.weekday }})</div>
+      <div class="col-4"><select class="form-select form-select-sm main-status" name="main_day_{{ row.index }}">{% for value,label in day_status_choices %}<option value="{{ value }}" {% if value == row.main_status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="col-4"><select class="form-select form-select-sm side-status" name="side_day_{{ row.index }}">{% for value,label in day_status_choices %}<option value="{{ value }}" {% if value == row.side_status %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
     </div>
-    {% if week_comment %}<div class="alert alert-info mt-3 mb-0"><strong>AIコメント:</strong> {{ week_comment }}</div>{% endif %}
-    <div class="d-flex flex-wrap gap-2 mt-3">
-      <button type="submit" name="action" value="save" class="btn btn-success">保存</button>
-      <button type="submit" name="action" value="regenerate" class="btn btn-outline-primary">全体を再生成</button>
-    </div>
+  {% endfor %}
   </div>
-</div>
+  <label class="form-label" for="user_request">今週の要望（任意）</label>
+  <textarea class="form-control mb-3" id="user_request" name="user_request" rows="3" placeholder="例: 水〜金はカレー&#10;例: 金曜は1人分">{{ user_request }}</textarea>
+  <button type="submit" name="action" value="generate" class="btn btn-primary">サジェスト生成</button>
+</div></div>
+{% if main_slots is not None %}
+<input type="hidden" name="week_comment" value="{{ week_comment }}">
+<div class="card shadow-sm mb-3"><div class="card-header fw-bold">2. 主菜</div><div class="card-body row g-3">
+{% for slot in main_slots %}<div class="col-12 col-md-6"><div class="border rounded p-3 h-100">
+  <h5>主菜枠{{ slot.order }} <span class="badge bg-primary">{{ slot.date_label }}・{{ slot.days }}日</span></h5>
+  <select class="form-select mb-2" name="main_recipe_{{ slot.order }}">{% for recipe in mains %}<option value="{{ recipe.pk }}" {% if recipe.pk|stringformat:'s' == slot.recipe_id|stringformat:'s' %}selected{% endif %}>{{ recipe.name }}</option>{% endfor %}</select>
+  <p class="small text-muted mb-0">{{ slot.reason }}</p><input type="hidden" name="main_reason_{{ slot.order }}" value="{{ slot.reason }}">
+</div></div>{% endfor %}</div></div>
+<div class="card shadow-sm mb-3"><div class="card-header fw-bold">3. 副菜</div><div class="card-body row g-3">
+{% for slot in side_slots %}<div class="col-12 col-md-6"><div class="border rounded p-3 h-100">
+  <h5>副菜枠{{ slot.order }} <span class="badge bg-success">{{ slot.date_label }}・{{ slot.days }}日</span></h5>
+  <select class="form-select mb-2" name="side_recipe_{{ slot.order }}">{% for recipe in sides %}<option value="{{ recipe.pk }}" {% if recipe.pk|stringformat:'s' == slot.recipe_id|stringformat:'s' %}selected{% endif %}>{{ recipe.name }}</option>{% endfor %}</select>
+  <p class="small text-muted mb-0">{{ slot.reason }}</p><input type="hidden" name="side_reason_{{ slot.order }}" value="{{ slot.reason }}">
+</div></div>{% endfor %}</div></div>
+{% if week_comment %}<div class="alert alert-info"><strong>AIコメント:</strong> {{ week_comment }}</div>{% endif %}
+<div class="d-flex flex-wrap gap-2 mb-4"><button type="submit" name="action" value="save" class="btn btn-success">保存</button><button type="submit" name="action" value="regenerate" class="btn btn-outline-primary">全体を再生成</button></div>
 {% endif %}
 </form>
 {% endblock %}
-{% block extra_js %}
-<script>
-(function () {
-  var weekdays = ['日','月','火','水','木','金','土'];
-  function updateDates() {
-    var base = new Date(document.getElementById('start_date').value + 'T00:00:00');
-    document.querySelectorAll('.day-row').forEach(function (row) {
-      var d = new Date(base); d.setDate(d.getDate() + Number(row.dataset.index));
-      row.querySelector('.day-label').textContent = (d.getMonth()+1) + '/' + d.getDate() + '(' + weekdays[d.getDay()] + ')';
-    });
-  }
-  document.getElementById('start_date').addEventListener('change', updateDates);
-  document.querySelectorAll('.preset-btn').forEach(function (button) {
-    button.addEventListener('click', function () {
-      var values = button.dataset.values.split(',');
-      document.querySelectorAll('.day-status').forEach(function (select, i) { select.value = values[i]; });
-    });
-  });
+{% block extra_js %}<script>
+(function(){
+ const wd=['日','月','火','水','木','金','土'];
+ const mainDefault=['new','continue','new','continue','new','continue','new'];
+ const sideDefault=['new','continue','continue','continue','new','continue','continue'];
+ function setValues(selector,values){document.querySelectorAll(selector).forEach((el,i)=>el.value=values[i]);}
+ function dates(){const base=new Date(document.getElementById('start_date').value+'T00:00:00');document.querySelectorAll('.day-row').forEach(row=>{const d=new Date(base);d.setDate(d.getDate()+Number(row.dataset.index));row.querySelector('.day-label').textContent=(d.getMonth()+1)+'/'+d.getDate()+'('+wd[d.getDay()]+')';});}
+ document.getElementById('start_date').addEventListener('change',dates);
+ document.querySelector('.preset-both').addEventListener('click',()=>{setValues('.main-status',mainDefault);setValues('.side-status',sideDefault);});
+ document.querySelector('.preset-main').addEventListener('click',()=>setValues('.main-status',['new','continue','continue','new','continue','new','continue']));
 })();
-</script>
-{% endblock %}
+</script>{% endblock %}

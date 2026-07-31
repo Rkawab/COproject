@@ -28,11 +28,19 @@ class HomeTests(TestCase):
         plan = MealPlan.objects.create(start_date=date.today())
         MealPlanSlot.objects.create(
             plan=plan,
+            slot_type="main",
             order=1,
             start_date=date.today(),
             days=1,
-            main_recipe=main,
-            side_recipe=side,
+            recipe=main,
+        )
+        MealPlanSlot.objects.create(
+            plan=plan,
+            slot_type="side",
+            order=1,
+            start_date=date.today(),
+            days=1,
+            recipe=side,
         )
 
         response = self.client.get(reverse("home"))

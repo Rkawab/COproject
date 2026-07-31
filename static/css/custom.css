@@ -3,6 +3,20 @@
     --color-main: #fd510d;
 }
 
+/* 週間プランの日別2レーン（iPhone 12: 390px基準） */
+@media (max-width: 420px) {
+    .day-row .form-select {
+        font-size: 0.75rem;
+        padding-left: 0.35rem;
+        padding-right: 1.7rem;
+    }
+
+    .day-row .day-label {
+        font-size: 0.78rem;
+        white-space: nowrap;
+    }
+}
+
 /* ---- iPad 11インチ横向き幅・フォント調整（PC表示用） ---- */
 html {
     font-size: 17px;

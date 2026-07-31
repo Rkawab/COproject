@@ -1,7 +1,6 @@
-from datetime import date
-
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
+from django.utils import timezone
 
 from planner.models import MealPlan
 from recipes.models import Recipe
@@ -10,26 +9,31 @@ from recipes.models import Recipe
 @login_required
 def home(request):
     """今週のプランと最近の献立を表示するダッシュボード。"""
-    today = date.today()
+    today = timezone.localdate()
     active_plan = None
     for plan in MealPlan.objects.filter(start_date__lte=today).prefetch_related(
-        "slots__main_recipe", "slots__side_recipe"
+        "slots__recipe"
     ):
         if today <= plan.end_date:
             active_plan = plan
             break
 
     home_slots = []
-    is_day_off = False
+    current_main = None
+    current_side = None
     if active_plan:
         for slot in active_plan.slots.all():
+            is_today = slot.start_date <= today <= slot.end_date
             home_slots.append(
                 {
                     "slot": slot,
-                    "is_today": slot.start_date <= today <= slot.end_date,
+                    "is_today": is_today,
                 }
             )
-        is_day_off = not any(item["is_today"] for item in home_slots)
+            if is_today and slot.slot_type == "main":
+                current_main = slot
+            if is_today and slot.slot_type == "side":
+                current_side = slot
 
     return render(
         request,
@@ -37,7 +41,9 @@ def home(request):
         {
             "active_plan": active_plan,
             "home_slots": home_slots,
-            "is_day_off": is_day_off,
+            "current_main": current_main,
+            "current_side": current_side,
+            "is_day_off": not current_main and not current_side,
             "recent_recipes": Recipe.objects.all()[:5],
             "today": today,
         },

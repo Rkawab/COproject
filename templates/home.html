@@ -12,6 +12,12 @@
         {% if active_plan %}
         <p class="text-muted small">{{ active_plan.start_date|date:"Y/m/d" }}〜{{ active_plan.end_date|date:"m/d" }}</p>
         {% if is_day_off %}<div class="alert alert-secondary py-2">今日はお休み（外食・残り物など）</div>{% endif %}
+        {% if not is_day_off %}
+        <div class="alert alert-light border py-2">
+            <div>主菜: {% if current_main.recipe %}<a href="{% url 'recipes:detail' current_main.recipe.pk %}">{{ current_main.recipe.name }}</a>{% else %}<span class="text-muted">お休み</span>{% endif %}</div>
+            <div>副菜: {% if current_side.recipe %}<a href="{% url 'recipes:detail' current_side.recipe.pk %}">{{ current_side.recipe.name }}</a>{% else %}<span class="text-muted">お休み</span>{% endif %}</div>
+        </div>
+        {% endif %}
         <div class="row g-2">
             {% for item in home_slots %}
             <div class="col-12 col-md-6">
@@ -20,8 +26,8 @@
                         <strong>{{ item.slot.date_label }}</strong>
                         {% if item.is_today %}<span class="badge bg-primary">今日</span>{% endif %}
                     </div>
-                    <div>主菜: {% if item.slot.main_recipe %}<a href="{% url 'recipes:detail' item.slot.main_recipe.pk %}">{{ item.slot.main_recipe.name }}</a>{% else %}<span class="text-muted">削除済み</span>{% endif %}</div>
-                    <div>副菜: {% if item.slot.side_recipe %}<a href="{% url 'recipes:detail' item.slot.side_recipe.pk %}">{{ item.slot.side_recipe.name }}</a>{% else %}<span class="text-muted">削除済み</span>{% endif %}</div>
+                    <div><span class="badge {% if item.slot.slot_type == 'main' %}bg-primary{% else %}bg-success{% endif %}">{{ item.slot.get_slot_type_display }}</span></div>
+                    <div>{% if item.slot.recipe %}<a href="{% url 'recipes:detail' item.slot.recipe.pk %}">{{ item.slot.recipe.name }}</a>{% else %}<span class="text-muted">削除済み</span>{% endif %}</div>
                 </div>
             </div>
             {% endfor %}
