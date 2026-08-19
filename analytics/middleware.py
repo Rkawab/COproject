@@ -1,3 +1,6 @@
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_ipv46_address
+
 from .models import PageView
 
 # 記録対象外のURLプレフィックス
@@ -37,18 +40,26 @@ class PageViewMiddleware:
         if not ip:
             ip = request.META.get("REMOTE_ADDR")
 
+        # X-Forwarded-For は詐称できる。不正な値は inet カラムでDataErrorになるため捨てる
+        if ip:
+            try:
+                validate_ipv46_address(ip)
+            except ValidationError:
+                ip = None
+
         user = (
             request.user
             if hasattr(request, "user") and request.user.is_authenticated
             else None
         )
 
+        # カラム長を超えるとDataErrorで全ページが500になるため、保存前に切り詰める
         PageView.objects.create(
-            path=path,
+            path=path[:500],
             user=user,
             ip_address=ip or None,
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
-            referrer=request.META.get("HTTP_REFERER", ""),
+            referrer=request.META.get("HTTP_REFERER", "")[:1000],
         )
 
         return response

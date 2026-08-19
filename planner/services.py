@@ -231,7 +231,8 @@ def _shopping_ingredients(plan):
     ):
         if not slot.recipe:
             continue
-        scale = 4 / slot.recipe.servings
+        # 人数が0や未設定でもゼロ除算にしない（4人前とみなす）
+        scale = 4 / (slot.recipe.servings or 4)
         for ingredient in slot.recipe.ingredients.all():
             result.append(
                 {

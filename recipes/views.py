@@ -25,13 +25,11 @@ logger = logging.getLogger(__name__)
 
 
 def _fetch_and_cache_nutrition(recipe, old_name=None):
-    """OpenAI API で栄養価を推定しキャッシュに保存する。エラーはログ記録のみ。"""
-    # 名前変更時は古いキャッシュを削除
-    if old_name and old_name != recipe.name:
-        NutritionCache.objects.filter(recipe_name=old_name).delete()
-    # 現在の名前のキャッシュを削除して再取得
-    NutritionCache.objects.filter(recipe_name=recipe.name).delete()
+    """OpenAI API で栄養価を推定しキャッシュに保存する。エラーはログ記録のみ。
 
+    取得に成功してからキャッシュを差し替える。API失敗時に既存の栄養価を
+    失わないようにするため、削除は取得成功後にのみ行う。
+    """
     ingredients_text = (
         "\n".join([f"- {i.name} {i.display_amount}" for i in recipe.ingredients.all()])
         or "（材料未登録）"
@@ -67,6 +65,10 @@ flavor_profile は {[value for value, _ in FLAVOR_PROFILE_CHOICES]} から選択
         raw = raw.replace("```json", "").replace("```", "").strip()
         data = json.loads(raw)
 
+        # ここまで来たら取得成功。名前変更時は古いキャッシュを片付けてから差し替える
+        if old_name and old_name != recipe.name:
+            NutritionCache.objects.filter(recipe_name=old_name).delete()
+        NutritionCache.objects.filter(recipe_name=recipe.name).delete()
         NutritionCache.objects.create(
             recipe_name=recipe.name,
             calories=data.get("calories"),
@@ -323,6 +325,9 @@ def recipe_delete(request, pk):
     if request.method == "POST":
         name = recipe.name
         recipe.delete()
+        # 同名の献立が他に残っていなければ栄養価キャッシュも片付ける
+        if not Recipe.objects.filter(name=name).exists():
+            NutritionCache.objects.filter(recipe_name=name).delete()
         messages.success(request, f"「{name}」を削除しました。")
         return redirect("recipes:list")
     return render(request, "recipes/confirm_delete.html", {"recipe": recipe})
@@ -330,74 +335,33 @@ def recipe_delete(request, pk):
 
 @login_required
 def get_nutrition(request, pk):
-    """OpenAI API で栄養価を推定しキャッシュ。JSONを返す。"""
+    """栄養価キャッシュをJSONで返す。無ければ推定して保存してから返す。
+
+    推定処理は登録・編集時と同じ `_fetch_and_cache_nutrition` に一本化している
+    （以前はここだけ5項目のプロンプトを持っており、fiber・vegetables_g が欠けた
+    不完全なキャッシュを作ってしまう状態だった）。
+    """
     recipe = get_object_or_404(Recipe, pk=pk)
 
-    # キャッシュがあればそのまま返す
     cached = NutritionCache.objects.filter(recipe_name=recipe.name).first()
-    if cached:
-        return JsonResponse(
-            {
-                "cached": True,
-                "calories": cached.calories,
-                "protein": cached.protein,
-                "fat": cached.fat,
-                "carbs": cached.carbs,
-                "salt": cached.salt,
-            }
-        )
+    was_cached = cached is not None
+    if not was_cached:
+        if not _fetch_and_cache_nutrition(recipe):
+            return JsonResponse({"error": "栄養価の取得に失敗しました。"}, status=500)
+        cached = NutritionCache.objects.filter(recipe_name=recipe.name).first()
 
-    # 材料テキストを組み立てる
-    ingredients_text = (
-        "\n".join([f"- {i.name} {i.display_amount}" for i in recipe.ingredients.all()])
-        or "（材料未登録）"
+    return JsonResponse(
+        {
+            "cached": was_cached,
+            "calories": cached.calories,
+            "protein": cached.protein,
+            "fat": cached.fat,
+            "carbs": cached.carbs,
+            "salt": cached.salt,
+            "fiber": cached.fiber,
+            "vegetables_g": cached.vegetables_g,
+        }
     )
-
-    prompt = f"""以下の料理について、1人分の推定栄養価を教えてください。
-
-料理名: {recipe.name}
-人数: {recipe.servings}人前
-材料:
-{ingredients_text}
-
-以下のJSON形式のみで返答してください（説明文・コードブロック不要）:
-{{"calories": 数値, "protein": 数値, "fat": 数値, "carbs": 数値, "salt": 数値}}
-
-単位: calories=kcal, protein/fat/carbs/salt=g（すべて1人分）"""
-
-    try:
-        import openai
-
-        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=150,
-        )
-        raw = response.choices[0].message.content.strip()
-
-        # コードブロックが混入した場合の除去
-        raw = raw.replace("```json", "").replace("```", "").strip()
-        data = json.loads(raw)
-
-        NutritionCache.objects.create(
-            recipe_name=recipe.name,
-            calories=data.get("calories"),
-            protein=data.get("protein"),
-            fat=data.get("fat"),
-            carbs=data.get("carbs"),
-            salt=data.get("salt"),
-            raw_response=raw,
-        )
-
-        return JsonResponse({"cached": False, **data})
-
-    except json.JSONDecodeError:
-        logger.error("栄養価JSONパース失敗: %s", raw)
-        return JsonResponse({"error": "AIの返答を解析できませんでした。"}, status=500)
-    except Exception as e:
-        logger.error("栄養価取得エラー: %s", e)
-        return JsonResponse({"error": "栄養価の取得に失敗しました。"}, status=500)
 
 
 @login_required

@@ -11,6 +11,14 @@ from .models import (
 
 
 class RecipeForm(forms.ModelForm):
+    # 人数はサーバー側でも1以上を強制する（0人前だと分量スケーリングが破綻するため）
+    servings = forms.IntegerField(
+        min_value=1,
+        max_value=99,
+        label="人数",
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": 1, "max": 99}),
+    )
+
     class Meta:
         model = Recipe
         fields = ["name", "genre1", "genre2", "genre3", "servings"]
@@ -21,16 +29,12 @@ class RecipeForm(forms.ModelForm):
             "genre1": forms.Select(attrs={"class": "form-select"}),
             "genre2": forms.Select(attrs={"class": "form-select", "id": "id_genre2"}),
             "genre3": forms.Select(attrs={"class": "form-select", "id": "id_genre3"}),
-            "servings": forms.NumberInput(
-                attrs={"class": "form-control", "min": 1, "max": 99}
-            ),
         }
         labels = {
             "name": "料理名",
             "genre1": "ジャンル1",
             "genre2": "ジャンル2",
             "genre3": "ジャンル3（主菜のときだけ）",
-            "servings": "人数",
         }
 
 

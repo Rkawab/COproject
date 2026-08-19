@@ -13,7 +13,13 @@ class RecipeReadError(Exception):
     pass
 
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+def _get_client() -> OpenAI:
+    """OpenAIクライアントを都度生成する。
+
+    モジュール読み込み時に生成すると、APIキー未設定のときに import 自体が
+    失敗し、アプリ全体が起動できなくなるため遅延生成にしている。
+    """
+    return OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 def _file_to_data_url(image_file: BinaryIO) -> str:
@@ -102,7 +108,7 @@ def extract_recipe_info(image_file: BinaryIO) -> dict:
     """.strip()
 
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
                 {

@@ -1,5 +1,6 @@
 import json
 import sys
+from datetime import date
 from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -8,6 +9,8 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
+
+from planner.models import MealPlan, MealPlanSlot
 
 from .models import NutritionCache, Recipe
 from .views import _fetch_and_cache_nutrition
@@ -184,6 +187,78 @@ class BackfillRecipeAttributesTests(TestCase):
         self.assertIn("成功1件", output.getvalue())
 
 
+class RecipeDeleteTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="delete-tester",
+            email="delete@example.com",
+            password="password",
+            is_active=True,
+        )
+        self.client.force_login(self.user)
+
+    def _create_recipe(self, name="肉じゃが"):
+        recipe = Recipe.objects.create(
+            name=name, genre1="和食", genre2="主菜", servings=4
+        )
+        NutritionCache.objects.create(recipe_name=name, calories=400)
+        return recipe
+
+    def test_delete_recipe_used_by_plan_clears_slot_reference(self):
+        recipe = self._create_recipe()
+        plan = MealPlan.objects.create(start_date=date(2026, 7, 12))
+        slot = MealPlanSlot.objects.create(
+            plan=plan,
+            slot_type="main",
+            order=1,
+            start_date=date(2026, 7, 12),
+            days=1,
+            recipe=recipe,
+        )
+
+        response = self.client.post(reverse("recipes:delete", args=[recipe.pk]))
+
+        self.assertRedirects(response, reverse("recipes:list"))
+        slot.refresh_from_db()
+        self.assertIsNone(slot.recipe)
+
+    def test_delete_removes_orphan_nutrition_cache(self):
+        recipe = self._create_recipe()
+
+        self.client.post(reverse("recipes:delete", args=[recipe.pk]))
+
+        self.assertFalse(NutritionCache.objects.filter(recipe_name="肉じゃが").exists())
+
+    def test_cache_is_kept_when_same_name_recipe_remains(self):
+        recipe = self._create_recipe()
+        Recipe.objects.create(name="肉じゃが", genre1="和食", genre2="主菜", servings=2)
+
+        self.client.post(reverse("recipes:delete", args=[recipe.pk]))
+
+        self.assertTrue(NutritionCache.objects.filter(recipe_name="肉じゃが").exists())
+
+
+class RecipeFormValidationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="form-tester",
+            email="form@example.com",
+            password="password",
+            is_active=True,
+        )
+        self.client.force_login(self.user)
+
+    @patch("recipes.views._fetch_and_cache_nutrition")
+    def test_zero_servings_is_rejected(self, _nutrition):
+        response = self.client.post(
+            reverse("recipes:quick_create"),
+            {"name": "0人前", "genre1": "和食", "genre2": "主菜", "servings": 0},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Recipe.objects.filter(name="0人前").exists())
+
+
 class ExtendedNutritionTests(TestCase):
     def test_single_ai_response_updates_nutrition_and_recipe_attributes(self):
         recipe = Recipe.objects.create(
@@ -218,3 +293,20 @@ class ExtendedNutritionTests(TestCase):
         self.assertEqual(recipe.main_protein, "豚肉")
         self.assertEqual(recipe.cooking_method, "炒める")
         self.assertEqual(recipe.flavor_profile, "")
+
+    def test_api_failure_keeps_existing_cache(self):
+        recipe = Recipe.objects.create(
+            name="肉じゃが", genre1="和食", genre2="主菜", servings=4
+        )
+        NutritionCache.objects.create(recipe_name="肉じゃが", calories=380)
+        client = Mock()
+        client.chat.completions.create.side_effect = RuntimeError("APIエラー")
+        fake_openai = SimpleNamespace(OpenAI=Mock(return_value=client))
+
+        with patch.dict(sys.modules, {"openai": fake_openai}):
+            succeeded = _fetch_and_cache_nutrition(recipe)
+
+        self.assertFalse(succeeded)
+        self.assertEqual(
+            NutritionCache.objects.get(recipe_name="肉じゃが").calories, 380
+        )

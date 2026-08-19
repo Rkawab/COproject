@@ -17,7 +17,14 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+def _get_client() -> OpenAI:
+    """OpenAIクライアントを都度生成する。
+
+    モジュール読み込み時に生成すると、APIキー未設定のときに import 自体が
+    失敗し、アプリ全体が起動できなくなるため遅延生成にしている。
+    """
+    return OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 def _clean_recipe_title(title: str) -> str:
@@ -368,7 +375,7 @@ def _parse_ingredients_with_ai(raw_ingredients):
     """.strip()
 
     try:
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model="gpt-4.1-mini",
             messages=[
                 {

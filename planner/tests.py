@@ -5,7 +5,9 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
 
 from recipes.models import Ingredient, NutritionCache, Recipe
 
@@ -172,3 +174,78 @@ class ShoppingListTests(TestCase):
     def test_validates_category_names(self):
         with self.assertRaises(ShoppingListError):
             validate_shopping_list({"categories": [{"name": "不正", "items": []}]})
+
+    def test_zero_servings_does_not_raise_zero_division(self):
+        recipe = Recipe.objects.create(
+            name="人数未設定", genre1="和食", genre2="主菜", servings=0
+        )
+        Ingredient.objects.create(
+            recipe=recipe, name="玉ねぎ", quantity=Decimal("1"), unit="個"
+        )
+        plan = MealPlan.objects.create(start_date=date(2026, 7, 12))
+        MealPlanSlot.objects.create(
+            plan=plan,
+            slot_type="main",
+            order=1,
+            start_date=date(2026, 7, 12),
+            days=1,
+            recipe=recipe,
+        )
+
+        items = _shopping_ingredients(plan)
+
+        self.assertEqual(items[0]["quantity"], 1.0)
+
+
+class SlotUpdateViewTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="slot-tester",
+            email="slot@example.com",
+            password="password",
+            is_active=True,
+        )
+        self.client.force_login(self.user)
+        self.recipe = Recipe.objects.create(
+            name="主菜A", genre1="和食", genre2="主菜", servings=4
+        )
+        self.plan = MealPlan.objects.create(start_date=date(2026, 7, 12))
+        self.slot = MealPlanSlot.objects.create(
+            plan=self.plan,
+            slot_type="main",
+            order=1,
+            start_date=date(2026, 7, 12),
+            days=1,
+            recipe=self.recipe,
+        )
+
+    def _url(self):
+        return reverse("planner:slot_update", args=[self.plan.pk, self.slot.pk])
+
+    def test_blank_recipe_id_redirects_with_message(self):
+        response = self.client.post(self._url(), {"recipe": ""})
+
+        self.assertRedirects(response, reverse("planner:detail", args=[self.plan.pk]))
+        self.slot.refresh_from_db()
+        self.assertEqual(self.slot.recipe, self.recipe)
+
+    def test_wrong_genre_recipe_is_rejected(self):
+        side = Recipe.objects.create(
+            name="副菜B", genre1="和食", genre2="副菜", servings=4
+        )
+
+        response = self.client.post(self._url(), {"recipe": side.pk})
+
+        self.assertRedirects(response, reverse("planner:detail", args=[self.plan.pk]))
+        self.slot.refresh_from_db()
+        self.assertEqual(self.slot.recipe, self.recipe)
+
+    def test_valid_recipe_is_applied(self):
+        other = Recipe.objects.create(
+            name="主菜C", genre1="洋食", genre2="主菜", servings=4
+        )
+
+        self.client.post(self._url(), {"recipe": other.pk})
+
+        self.slot.refresh_from_db()
+        self.assertEqual(self.slot.recipe, other)

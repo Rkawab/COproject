@@ -82,6 +82,14 @@ def parse_day_schedule(statuses, start_date, max_days, lane_name):
     return slots
 
 
+def _as_pk(value):
+    """POSTで受け取ったIDを int に変換する。不正な値は None を返す。"""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _date_label(slot):
     def label(value):
         return f"{value.month}/{value.day}({WEEKDAYS[value.weekday()]})"
@@ -250,9 +258,14 @@ def slot_update(request, pk, slot_pk):
     slot = get_object_or_404(MealPlanSlot, pk=slot_pk, plan=plan)
     if request.method == "POST":
         genre = "主菜" if slot.slot_type == "main" else "副菜"
-        slot.recipe = get_object_or_404(
-            Recipe, pk=request.POST.get("recipe"), genre2=genre
-        )
+        # 未選択・削除済み・不正なIDでも500にせずメッセージで返す
+        recipe = Recipe.objects.filter(
+            pk=_as_pk(request.POST.get("recipe")), genre2=genre
+        ).first()
+        if recipe is None:
+            messages.error(request, "差し替える献立を選び直してください。")
+            return redirect("planner:detail", pk=plan.pk)
+        slot.recipe = recipe
         try:
             slot.full_clean()
             slot.save()
